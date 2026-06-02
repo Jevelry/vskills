@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Volleyball Skill Progression Tree</title>
+    <style>
+        :root {
+            --digging-color: #3b82f6;
+            --setting-color: #f59e0b;
+            --hitting-color: #ef4444;
+            --bg-color: #0f172a;
+            --card-bg: #1e293b;
+            --text-color: #f8fafc;
+            --line-color: #475569;
+            --completed-color: #22c55e; /* Clean, solid green for completion */
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: var(--card-bg);
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+
+        h1 { margin-bottom: 10px; font-size: 2rem; }
+        
+        .progress-bar-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 15px;
+            flex-wrap: wrap;
+        }
+
+        .progress-text { font-size: 1.2rem; font-weight: bold; }
+        
+        .progress-track {
+            width: 300px;
+            height: 12px;
+            background: #334155;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+
+        /* SIMPLIFIED PROGRESS BAR: Solid color instead of gradient */
+        .progress-fill {
+            height: 100%;
+            background: var(--completed-color);
+            width: 0%;
+            transition: width 0.5s ease;
+        }
+
+        .btn-reset {
+            background: #ef4444;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.2s;
+        }
+        .btn-reset:hover { background: #dc2626; }
+
+        /* Skill Tree Graph Layout */
+        .tree-container {
+            position: relative;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
+        .tracks {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 40px;
+            position: relative;
+            z-index: 2;
+        }
+
+        .track {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 30px;
+        }
+
+        .track-header {
+            font-size: 1.5rem;
+            font-weight: bold;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            text-align: center;
+        }
+
+        .track-digging .track-header { color: var(--digging-color); }
+        .track-setting .track-header { color: var(--setting-color); }
+        .track-hitting .track-header { color: var(--hitting-color); }
+
+        .skill-node {
+            width: 160px;
+            padding: 15px 10px;
+            background: var(--card-bg);
+            border: 2px solid var(--line-color);
+            border-radius: 12px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            z-index: 3;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+        }
+
+        .skill-node:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 15px rgba(0,0,0,0.4);
+            border-color: #94a3b8;
+        }
+
+        .skill-node.completed {
+            border-color: var(--completed-color);
+            background: rgba(34, 197, 94, 0.1);
+        }
+
+        .skill-node.completed::after {
+            content: '✓';
+            position: absolute;
+            top: -10px;
+            right: -10px;
+            background: var(--completed-color);
+            color: white;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 14px;
+        }
+
+        .skill-name { font-weight: bold; font-size: 0.9rem; margin-bottom: 5px; line-height: 1.3; }
+        .skill-reps { font-size: 0.75rem; color: #94a3b8; font-weight: 600; margin-bottom: 5px; }
+        .skill-track-label { font-size: 0.7rem; opacity: 0.7; text-transform: uppercase; letter-spacing: 0.5px; }
+
+        /* SVG Lines Overlay */
+        .lines-svg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+            pointer-events: none;
+        }
+
+        .connection-line {
+            fill: none;
+            stroke: var(--line-color);
+            stroke-width: 3;
+            transition: stroke 0.3s;
+        }
+
+        /* STATIC COMPLETED PATH: Removed animation and dasharray */
+        .connection-line.completed-path {
+            stroke: var(--completed-color);
+            stroke-width: 4; /* Slightly thicker to stand out statically */
+        }
+
+        /* Modal Styles */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            backdrop-filter: blur(4px);
+        }
+
+        .modal-overlay.active { display: flex; }
+
+        .modal-content {
+            background: var(--card-bg);
+            border-radius: 16px;
+            max-width: 650px;
+            width: 100%;
+            max-height: 90vh;
+            overflow-y: auto;
+            position: relative;
+            border: 1px solid #334155;
+            box-shadow: 0 20px 25px rgba(0,0,0,0.5);
+        }
+
+        .modal-header {
+            padding: 20px;
+            border-bottom: 1px solid #334155;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+
+        .modal-title { font-size: 1.4rem; font-weight: bold; color: white; }
+        .modal-reps-badge { 
+            display: inline-block; 
+            background: #334155; 
+            color: #fbbf24; 
+            padding: 4px 10px; 
+            border-radius: 20px; 
+            font-size: 0.85rem; 
+            font-weight: bold; 
+            margin-top: 8px;
+        }
+        
+        .modal-close {
+            background: none;
+            border: none;
+            color: #94a3b8;
+            font-size: 1.8rem;
+            cursor: pointer;
+            line-height: 1;
+        }
+        .modal-close:hover { color: white; }
+
+        .modal-body { padding: 20px; }
+        
+        .modal-description {
+            margin-bottom: 20px;
+            line-height: 1.7;
+            color: #cbd5e1;
+            font-size: 1.05rem;
+        }
+
+        .modal-description strong { color: white; }
+
+        .video-container {
+            position: relative;
+            padding-bottom: 56.25%; /* 16:9 aspect ratio */
+            height: 0;
+            background: #000;
+            border-radius: 8px;
+            overflow: hidden;
+            margin-bottom: 20px;
+            border: 1px solid #334155;
+        }
+
+        .video-container iframe {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            border: none;
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border-radius: 8px;
+            border: none;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 0.95rem;
+        }
+
+        .btn-complete {
+            background: var(--completed-color);
+            color: white;
+        }
+        .btn-complete:hover { background: #16a34a; }
+        
+        .btn-incomplete {
+            background: #475569;
+            color: white;
+        }
+        .btn-incomplete:hover { background: #64748b; }
+
+        /* Responsive */
+        @media (max-width: 900px) {
+            .tracks { grid-template-columns: 1fr; gap: 60px; }
+            .tree-container { padding: 20px 10px; }
+            .intersection-line { display: none; } /* Hide complex cross-lines on mobile */
+            .skill-node { width: 100%; max-width: 300px; }
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>🏐 Volleyball Skill Progression Tree</h1>
+    <div class="progress-bar-container">
+        <span class="progress-text">Progress: <span id="completed-count">0</span> / 17</span>
+        <div class="progress-track">
+            <div class="progress-fill" id="progress-fill"></div>
+        </div>
+        <button class="btn-reset" onclick="resetProgress()">Reset Progress</button>
+    </div>
+</header>
+
+<div class="tree-container" id="tree-container">
+    <svg class="lines-svg" id="lines-svg"></svg>
+    
+    <div class="tracks">
+        <!-- Digging Track -->
+        <div class="track track-digging" id="track-digging">
+            <div class="track-header">Digging (0/6)</div>
+        </div>
+
+        <!-- Setting Track -->
+        <div class="track track-setting" id="track-setting">
+            <div class="track-header">Setting (0/6)</div>
+        </div>
+
+        <!-- Hitting Track -->
+        <div class="track track-hitting" id="track-hitting">
+            <div class="track-header">Hitting (0/5)</div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal -->
+<div class="modal-overlay" id="skill-modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <div>
+                <div class="modal-title" id="modal-title">Skill Name</div>
+                <div class="modal-reps-badge" id="modal-reps">Target: 0 reps</div>
+            </div>
+            <button class="modal-close" onclick="closeModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p class="modal-description" id="modal-description">Skill description goes here.</p>
+            
+            <div class="video-container">
+                <!-- BLANK YOUTUBE LINK: Replace the 'src' value with your video URL (e.g., https://www.youtube.com/embed/VIDEO_ID) -->
+                <iframe id="modal-video" src="" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+            </div>
+            
+            <div class="modal-actions">
+                <button class="btn btn-incomplete" id="btn-mark-incomplete" onclick="toggleSkillStatus(false)">Mark Incomplete</button>
+                <button class="btn btn-complete" id="btn-mark-complete" onclick="toggleSkillStatus(true)">Mark Complete</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Enhanced Skill Data Structure based on your notes
+    const skillsData = [
+        // Digging (6)
+        { 
+            id: 'd1', track: 'digging', name: 'Wall Self-Bumps', reps: '100 reps', 
+            desc: '<strong>How:</strong> Stand 2-3 feet from a wall and continuously bump the ball against it to yourself.<br><strong>Focus:</strong> Maintain a flat, locked platform. Bend your knees to absorb the impact and control the rebound height. Keep your shoulders shrugged and arms straight.', 
+            video: '' 
+        },
+        { 
+            id: 'd2', track: 'digging', name: 'Standing Self-Bumps', reps: '100 reps', 
+            desc: '<strong>How:</strong> Bump the ball straight up into the air without a wall.<br><strong>Focus:</strong> Consistent height and control. Engage your legs to generate power rather than swinging your arms. Keep the ball in the center of your body line.', 
+            video: '' 
+        },
+        { 
+            id: 'd3', track: 'digging', name: 'One-Arm Bumps', reps: '50 per hand', 
+            desc: '<strong>How:</strong> Pass the ball to yourself using only one arm.<br><strong>Focus:</strong> Forces proper shoulder rotation and platform alignment on your non-dominant side. Keep your elbow locked and use your legs to lift the ball.', 
+            video: '' 
+        },
+        { 
+            id: 'd4', track: 'digging', name: 'Alternating One-Arm Bumps', reps: '100 reps', 
+            desc: '<strong>How:</strong> Rapidly alternate arms to keep the ball in the air.<br><strong>Focus:</strong> Builds agility, quick platform adjustment, and core stability. Teaches you to recover your body position instantly after each contact.', 
+            video: '' 
+        },
+        { 
+            id: 'd5', track: 'digging', name: 'Wall-to-Self Pass', reps: '50 reps', 
+            desc: '<strong>How:</strong> Pass the ball hard into the wall, then immediately move to control the rebound back to yourself.<br><strong>Focus:</strong> Reading the rebound angle, quick shuffle footwork, and transitioning from a hard-driven ball to a controlled, high pass.', 
+            video: '' 
+        },
+        { 
+            id: 'd6', track: 'digging', name: 'Dig-Set-Spike to Wall', reps: '30 reps (Overlap)', 
+            desc: '<strong>How:</strong> The ultimate solo drill. Throw the ball, dig the rebound, set it up for yourself, and attack it into the wall. Repeat continuously.<br><strong>Focus:</strong> Transition footwork, getting low for the dig, squaring up for the set, and finishing with a full arm swing. (This drill overlaps with Setting and Hitting tracks).', 
+            video: '' 
+        },
+        
+        // Setting (6)
+        { 
+            id: 's1', track: 'setting', name: 'Close Wall Sets', reps: '100 reps', 
+            desc: '<strong>How:</strong> Stand 1-2 feet from the wall and set the ball repeatedly.<br><strong>Focus:</strong> Pure hand shape and wrist snap. Form a triangle with your thumbs and index fingers. Use only your fingers and wrists, no arm swing, to build finger strength and muscle memory.', 
+            video: '' 
+        },
+        { 
+            id: 's2', track: 'setting', name: 'Far Wall Sets', reps: '80 reps', 
+            desc: '<strong>How:</strong> Step back 4-6 feet from the wall and set the ball so it reaches the wall.<br><strong>Focus:</strong> Full body extension. You must bend your knees, hips, and elbows, then extend everything simultaneously to generate enough power to reach the wall.', 
+            video: '' 
+        },
+        { 
+            id: 's3', track: 'setting', name: 'One-Arm Wall Sets', reps: '100 reps', 
+            desc: '<strong>How:</strong> Set the ball against the wall using only one hand (alternate hands).<br><strong>Focus:</strong> Isolates the setting hand. Forces proper finger pad contact, wrist extension, and follow-through on both the right and left hand.', 
+            video: '' 
+        },
+        { 
+            id: 's4', track: 'setting', name: 'Self-Set to Wall Set', reps: '50 reps', 
+            desc: '<strong>How:</strong> Toss the ball to yourself, set it high into the air, then immediately move under it and set it into the wall.<br><strong>Focus:</strong> Builds rhythm and the transition from tracking a falling ball to aggressively pushing it to a target.', 
+            video: '' 
+        },
+        { 
+            id: 's5', track: 'setting', name: 'Continuous Reverse Sets', reps: '30 reps', 
+            desc: '<strong>How:</strong> Stand with your back to the wall. Toss the ball up and set it over your head to hit the wall behind you.<br><strong>Focus:</strong> Develops spatial awareness, overhead wrist action, and the ability to set accurately without looking directly at the target.', 
+            video: '' 
+        },
+        { 
+            id: 's6', track: 'setting', name: 'Dig-Set-Spike to Wall', reps: '30 reps (Overlap)', 
+            desc: '<strong>How:</strong> Same continuous drill as the digging track.<br><strong>Focus:</strong> Here, the emphasis is on the <em>setting</em> transition. Focus on creating a perfectly hittable ball out of a bad, unpredictable dig rebound before attacking.', 
+            video: '' 
+        },
+
+        // Hitting (5)
+        { 
+            id: 'h1', track: 'hitting', name: 'Stationary Ball Hit', reps: 'Focus on form', 
+            desc: '<strong>How:</strong> Have a partner (or use a stand) hold the ball at the peak of your jump reach. Jump and hit the stationary ball.<br><strong>Focus:</strong> Pure arm swing mechanics. High elbow, open chest, and snapping the wrist firmly over the top of the ball to generate topspin.', 
+            video: '' 
+        },
+        { 
+            id: 'h2', track: 'hitting', name: 'Downward Arm Swing (Catch & Retoss)', reps: 'Focus on wrist snap', 
+            desc: '<strong>How:</strong> Stand close to the wall. Toss the ball up slightly, swing your arm down and snap your wrist so the ball hits the wall and comes straight back to your hands. Catch and repeat.<br><strong>Focus:</strong> Wrist snap and solid, centered contact. The ball should return cleanly without spinning wildly.', 
+            video: '' 
+        },
+        { 
+            id: 'h3', track: 'hitting', name: 'High Toss Arm Swing (Catch & Retoss)', reps: 'Focus on contact', 
+            desc: '<strong>How:</strong> Toss the ball higher, take a small approach step, jump, and swing down onto the ball against the wall. Catch the rebound.<br><strong>Focus:</strong> Timing the peak of your jump with the contact point. Reaching high and hitting the ball at the absolute highest point possible.', 
+            video: '' 
+        },
+        { 
+            id: 'h4', track: 'hitting', name: 'Continuous Arm Swings', reps: 'Endurance focus', 
+            desc: '<strong>How:</strong> Rapid-fire hitting against the wall from a standing or slight approach position without catching the ball.<br><strong>Focus:</strong> Builds shoulder endurance, core stability, and a consistent contact point. Keep the rallies going by controlling your own rebounds.', 
+            video: '' 
+        },
+        { 
+            id: 'h5', track: 'hitting', name: 'Float Serve & Overhead Pass', reps: 'Transition focus', 
+            desc: '<strong>How:</strong> Float serve the ball hard into the wall, let it rebound, and immediately overhead pass (set) the rebound back to yourself or control it.<br><strong>Focus:</strong> Teaches solid, no-spin serve contact, followed by an immediate transition into defensive/setting footwork and posture.', 
+            video: '' 
+        }
+    ];
+
+    // Define connections (lines) between skills
+    const connections = [
+        // Sequential Digging
+        { from: 'd1', to: 'd2' }, { from: 'd2', to: 'd3' }, { from: 'd3', to: 'd4' }, { from: 'd4', to: 'd5' }, { from: 'd5', to: 'd6' },
+        // Sequential Setting
+        { from: 's1', to: 's2' }, { from: 's2', to: 's3' }, { from: 's3', to: 's4' }, { from: 's4', to: 's5' }, { from: 's5', to: 's6' },
+        // Sequential Hitting
+        { from: 'h1', to: 'h2' }, { from: 'h2', to: 'h3' }, { from: 'h3', to: 'h4' }, { from: 'h4', to: 'h5' },
+        // Intersections (The "Graph" aspect)
+        { from: 'd6', to: 's6', type: 'intersection' }, // Dig-Set-Spike overlaps between Digging and Setting
+        { from: 's6', to: 'h5', type: 'intersection' }  // Setting transition flows into advanced Hitting transitions
+    ];
+
+    let completedSkills = new Set(JSON.parse(localStorage.getItem('vb_completed_skills') || '[]'));
+    let currentModalSkillId = null;
+
+    // Initialize
+    function init() {
+        renderNodes();
+        setTimeout(() => {
+            drawLines();
+            updateProgress();
+        }, 150); // Slight delay to ensure DOM is rendered for accurate positioning
+        
+        window.addEventListener('resize', () => {
+            drawLines();
+        });
+    }
+
+    function renderNodes() {
+        const tracks = {
+            digging: document.getElementById('track-digging'),
+            setting: document.getElementById('track-setting'),
+            hitting: document.getElementById('track-hitting')
+        };
+
+        // Clear existing nodes (keep headers)
+        Object.values(tracks).forEach(track => {
+            const header = track.querySelector('.track-header');
+            track.innerHTML = '';
+            track.appendChild(header);
+        });
+
+        skillsData.forEach(skill => {
+            const node = document.createElement('div');
+            node.className = `skill-node ${completedSkills.has(skill.id) ? 'completed' : ''}`;
+            node.id = `node-${skill.id}`;
+            node.onclick = () => openModal(skill.id);
+            
+            node.innerHTML = `
+                <div class="skill-name">${skill.name}</div>
+                <div class="skill-reps">${skill.reps}</div>
+                <div class="skill-track-label">${skill.track}</div>
+            `;
+            
+            tracks[skill.track].appendChild(node);
+        });
+
+        // Update track headers with counts
+        ['digging', 'setting', 'hitting'].forEach(track => {
+            const total = skillsData.filter(s => s.track === track).length;
+            const completed = skillsData.filter(s => s.track === track && completedSkills.has(s.id)).length;
+            const header = document.querySelector(`.track-${track} .track-header`);
+            header.textContent = `${track.charAt(0).toUpperCase() + track.slice(1)} (${completed}/${total})`;
+        });
+    }
+
+    function drawLines() {
+        const svg = document.getElementById('lines-svg');
+        svg.innerHTML = ''; // Clear existing lines
+        
+        const containerRect = document.getElementById('tree-container').getBoundingClientRect();
+
+        connections.forEach(conn => {
+            const fromEl = document.getElementById(`node-${conn.from}`);
+            const toEl = document.getElementById(`node-${conn.to}`);
+            
+            if (!fromEl || !toEl) return;
+
+            const fromRect = fromEl.getBoundingClientRect();
+            const toRect = toEl.getBoundingClientRect();
+
+            // Calculate center points relative to the SVG container
+            const x1 = fromRect.left + fromRect.width / 2 - containerRect.left;
+            const y1 = fromRect.top + fromRect.height / 2 - containerRect.top;
+            const x2 = toRect.left + toRect.width / 2 - containerRect.left;
+            const y2 = toRect.top + toRect.height / 2 - containerRect.top;
+
+            // Create path
+            const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            
+            // Bezier curve for smooth graph look
+            const midY = (y1 + y2) / 2;
+            const d = `M ${x1} ${y1} C ${x1} ${midY}, ${x2} ${midY}, ${x2} ${y2}`;
+            
+            path.setAttribute('d', d);
+            path.setAttribute('class', `connection-line ${conn.type === 'intersection' ? 'intersection-line' : ''}`);
+            
+            // Highlight line statically if both connected skills are completed
+            if (completedSkills.has(conn.from) && completedSkills.has(conn.to)) {
+                path.classList.add('completed-path');
+            }
+
+            svg.appendChild(path);
+        });
+    }
+
+    function openModal(skillId) {
+        currentModalSkillId = skillId;
+        const skill = skillsData.find(s => s.id === skillId);
+        
+        document.getElementById('modal-title').textContent = skill.name;
+        document.getElementById('modal-reps').textContent = `Target: ${skill.reps}`;
+        document.getElementById('modal-description').innerHTML = skill.desc;
+        
+        // Set video source (Blank by default as requested)
+        document.getElementById('modal-video').src = skill.video || ""; 
+
+        // Update button states
+        const isComplete = completedSkills.has(skillId);
+        document.getElementById('btn-mark-complete').style.display = isComplete ? 'none' : 'inline-block';
+        document.getElementById('btn-mark-incomplete').style.display = isComplete ? 'inline-block' : 'none';
+
+        document.getElementById('skill-modal').classList.add('active');
+    }
+
+    function closeModal() {
+        document.getElementById('skill-modal').classList.remove('active');
+        document.getElementById('modal-video').src = ""; // Stop video playback
+        currentModalSkillId = null;
+    }
+
+    function toggleSkillStatus(isComplete) {
+        if (!currentModalSkillId) return;
+
+        if (isComplete) {
+            completedSkills.add(currentModalSkillId);
+        } else {
+            completedSkills.delete(currentModalSkillId);
+        }
+
+        // Save to localStorage
+        localStorage.setItem('vb_completed_skills', JSON.stringify([...completedSkills]));
+
+        // Refresh UI
+        renderNodes();
+        drawLines();
+        updateProgress();
+        closeModal();
+    }
+
+    function updateProgress() {
+        const total = skillsData.length;
+        const completed = completedSkills.size;
+        const percentage = (completed / total) * 100;
+
+        document.getElementById('completed-count').textContent = completed;
+        document.getElementById('progress-fill').style.width = `${percentage}%`;
+    }
+
+    function resetProgress() {
+        if (confirm('Are you sure you want to reset all progress?')) {
+            completedSkills.clear();
+            localStorage.removeItem('vb_completed_skills');
+            renderNodes();
+            drawLines();
+            updateProgress();
+        }
+    }
+
+    // Close modal when clicking outside
+    document.getElementById('skill-modal').addEventListener('click', (e) => {
+        if (e.target.id === 'skill-modal') {
+            closeModal();
+        }
+    });
+
+    // Start
+    init();
+</script>
+
+</body>
+</html>
