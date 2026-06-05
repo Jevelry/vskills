@@ -3,17 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Volleyball Skill Progression Tree</title>
+    <title>Volleyball Skill Progression DAG</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dagre/0.8.5/dagre.min.js"></script>
     <style>
         :root {
-            --digging-color: #3b82f6;
-            --setting-color: #f59e0b;
-            --hitting-color: #ef4444;
+            --level1-color: #3b82f6;
+            --level2-color: #8b5cf6;
+            --combined-color: #f59e0b;
+            --final-color: #ef4444;
             --bg-color: #0f172a;
             --card-bg: #1e293b;
             --text-color: #f8fafc;
             --line-color: #475569;
-            --completed-color: #22c55e; /* Clean, solid green for completion */
+            --completed-color: #22c55e;
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -23,19 +25,23 @@
             background-color: var(--bg-color);
             color: var(--text-color);
             min-height: 100vh;
-            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden; /* Prevent page-wide horizontal scrolling */
         }
 
         header {
             text-align: center;
-            margin-bottom: 30px;
             padding: 20px;
             background: var(--card-bg);
-            border-radius: 12px;
+            border-bottom: 1px solid #334155;
+            position: sticky;
+            top: 0;
+            z-index: 100;
             box-shadow: 0 4px 6px rgba(0,0,0,0.3);
         }
 
-        h1 { margin-bottom: 10px; font-size: 2rem; }
+        h1 { margin-bottom: 10px; font-size: 1.8rem; }
         
         .progress-bar-container {
             display: flex;
@@ -46,7 +52,7 @@
             flex-wrap: wrap;
         }
 
-        .progress-text { font-size: 1.2rem; font-weight: bold; }
+        .progress-text { font-size: 1.1rem; font-weight: bold; }
         
         .progress-track {
             width: 300px;
@@ -56,7 +62,6 @@
             overflow: hidden;
         }
 
-        /* SIMPLIFIED PROGRESS BAR: Solid color instead of gradient */
         .progress-fill {
             height: 100%;
             background: var(--completed-color);
@@ -76,59 +81,68 @@
         }
         .btn-reset:hover { background: #dc2626; }
 
-        /* Skill Tree Graph Layout */
         .tree-container {
             position: relative;
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 40px 20px;
+            margin: 40px auto;
+            background: rgba(30, 41, 59, 0.3);
+            border-radius: 16px;
+            border: 1px solid #334155;
+            overflow: auto; /* Allow scrolling if graph is larger than container */
+            max-height: calc(100vh - 220px);
+            padding: 20px;
+            
+            /* Hide scrollbars for a clean, distraction-free look */
+            scrollbar-width: none; /* Firefox */
+            -ms-overflow-style: none; /* IE and Edge */
         }
 
-        .tracks {
-            display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
-            gap: 40px;
-            position: relative;
-            z-index: 2;
+        /* Hide scrollbars for Chrome, Safari, and Opera */
+        .tree-container::-webkit-scrollbar {
+            display: none;
         }
 
-        .track {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 30px;
+        .lines-svg {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            pointer-events: none;
+            z-index: 1;
         }
 
-        .track-header {
-            font-size: 1.5rem;
-            font-weight: bold;
-            margin-bottom: 10px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            text-align: center;
+        .connection-line {
+            fill: none;
+            stroke: var(--line-color);
+            stroke-width: 3;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            transition: stroke 0.3s, stroke-width 0.3s;
         }
 
-        .track-digging .track-header { color: var(--digging-color); }
-        .track-setting .track-header { color: var(--setting-color); }
-        .track-hitting .track-header { color: var(--hitting-color); }
+        .connection-line.completed-path {
+            stroke: var(--completed-color);
+            stroke-width: 4;
+        }
 
         .skill-node {
-            width: 160px;
-            padding: 15px 10px;
+            position: absolute;
             background: var(--card-bg);
             border: 2px solid var(--line-color);
             border-radius: 12px;
             text-align: center;
             cursor: pointer;
             transition: all 0.3s ease;
-            position: relative;
             z-index: 3;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 12px;
         }
 
         .skill-node:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 8px 15px rgba(0,0,0,0.4);
+            transform: translateY(-4px) scale(1.02);
+            box-shadow: 0 12px 20px rgba(0,0,0,0.4);
             border-color: #94a3b8;
         }
 
@@ -152,37 +166,19 @@
             justify-content: center;
             font-weight: bold;
             font-size: 14px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
         }
 
-        .skill-name { font-weight: bold; font-size: 0.9rem; margin-bottom: 5px; line-height: 1.3; }
-        .skill-reps { font-size: 0.75rem; color: #94a3b8; font-weight: 600; margin-bottom: 5px; }
-        .skill-track-label { font-size: 0.7rem; opacity: 0.7; text-transform: uppercase; letter-spacing: 0.5px; }
+        .skill-node[data-level="1"] { border-top: 4px solid var(--level1-color); }
+        .skill-node[data-level="2"] { border-top: 4px solid var(--level2-color); }
+        .skill-node[data-level="combined"] { border-top: 4px solid var(--combined-color); }
+        .skill-node[data-level="final"] { border-top: 4px solid var(--final-color); }
+        .skill-node[data-level="isolated"] { border-top: 4px solid #14b8a6; }
 
-        /* SVG Lines Overlay */
-        .lines-svg {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: 1;
-            pointer-events: none;
-        }
+        .skill-name { font-weight: bold; font-size: 1rem; margin-bottom: 4px; line-height: 1.3; }
+        .skill-subheading { font-size: 0.75rem; color: #94a3b8; font-weight: 600; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .skill-progress { font-size: 0.8rem; color: #cbd5e1; font-weight: bold; background: #334155; padding: 2px 8px; border-radius: 10px; }
 
-        .connection-line {
-            fill: none;
-            stroke: var(--line-color);
-            stroke-width: 3;
-            transition: stroke 0.3s;
-        }
-
-        /* STATIC COMPLETED PATH: Removed animation and dasharray */
-        .connection-line.completed-path {
-            stroke: var(--completed-color);
-            stroke-width: 4; /* Slightly thicker to stand out statically */
-        }
-
-        /* Modal Styles */
         .modal-overlay {
             display: none;
             position: fixed;
@@ -200,13 +196,20 @@
         .modal-content {
             background: var(--card-bg);
             border-radius: 16px;
-            max-width: 650px;
+            max-width: 600px;
             width: 100%;
             max-height: 90vh;
             overflow-y: auto;
             position: relative;
             border: 1px solid #334155;
             box-shadow: 0 20px 25px rgba(0,0,0,0.5);
+            
+            /* Hide modal scrollbar as well for consistency */
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+        }
+        .modal-content::-webkit-scrollbar {
+            display: none;
         }
 
         .modal-header {
@@ -218,16 +221,7 @@
         }
 
         .modal-title { font-size: 1.4rem; font-weight: bold; color: white; }
-        .modal-reps-badge { 
-            display: inline-block; 
-            background: #334155; 
-            color: #fbbf24; 
-            padding: 4px 10px; 
-            border-radius: 20px; 
-            font-size: 0.85rem; 
-            font-weight: bold; 
-            margin-top: 8px;
-        }
+        .modal-subheading { font-size: 0.9rem; color: #94a3b8; margin-top: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
         
         .modal-close {
             background: none;
@@ -248,16 +242,14 @@
             font-size: 1.05rem;
         }
 
-        .modal-description strong { color: white; }
-
         .video-container {
             position: relative;
-            padding-bottom: 56.25%; /* 16:9 aspect ratio */
+            padding-bottom: 56.25%;
             height: 0;
             background: #000;
             border-radius: 8px;
             overflow: hidden;
-            margin-bottom: 20px;
+            margin-bottom: 25px;
             border: 1px solid #334155;
         }
 
@@ -267,75 +259,104 @@
             border: none;
         }
 
-        .modal-actions {
-            display: flex;
-            gap: 10px;
-            justify-content: flex-end;
+        .variations-section {
+            background: rgba(15, 23, 42, 0.5);
+            border-radius: 8px;
+            padding: 15px;
+            border: 1px solid #334155;
         }
 
-        .btn {
-            padding: 10px 20px;
-            border-radius: 8px;
-            border: none;
+        .variations-title {
+            font-size: 1.1rem;
             font-weight: bold;
+            margin-bottom: 15px;
+            color: white;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .variation-item {
+            display: flex;
+            align-items: center;
+            padding: 10px;
+            margin-bottom: 8px;
+            background: var(--card-bg);
+            border-radius: 8px;
+            border: 1px solid #475569;
             cursor: pointer;
             transition: all 0.2s;
-            font-size: 0.95rem;
         }
 
-        .btn-complete {
-            background: var(--completed-color);
-            color: white;
+        .variation-item:hover {
+            border-color: #94a3b8;
+            background: #263345;
         }
-        .btn-complete:hover { background: #16a34a; }
-        
-        .btn-incomplete {
-            background: #475569;
-            color: white;
-        }
-        .btn-incomplete:hover { background: #64748b; }
 
-        /* Responsive */
-        @media (max-width: 900px) {
-            .tracks { grid-template-columns: 1fr; gap: 60px; }
-            .tree-container { padding: 20px 10px; }
-            .intersection-line { display: none; } /* Hide complex cross-lines on mobile */
-            .skill-node { width: 100%; max-width: 300px; }
+        .variation-item.completed {
+            border-color: var(--completed-color);
+            background: rgba(34, 197, 94, 0.1);
+            text-decoration: line-through;
+            opacity: 0.7;
+        }
+
+        .variation-checkbox {
+            width: 20px;
+            height: 20px;
+            margin-right: 12px;
+            accent-color: var(--completed-color);
+            cursor: pointer;
+        }
+
+        .variation-details {
+            flex: 1;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .variation-name { font-weight: 500; color: #f8fafc; }
+        .variation-reps { font-size: 0.85rem; color: #fbbf24; font-weight: bold; background: #334155; padding: 2px 8px; border-radius: 4px; }
+
+        .legend {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 15px;
+            font-size: 0.85rem;
+            flex-wrap: wrap;
+        }
+        .legend-item { display: flex; align-items: center; gap: 6px; }
+        .legend-dot { width: 12px; height: 12px; border-radius: 50%; }
+
+        @media (max-width: 768px) {
+            .tree-container { max-height: calc(100vh - 250px); }
+            .modal-content { max-height: 95vh; }
         }
     </style>
 </head>
 <body>
 
 <header>
-    <h1>🏐 Volleyball Skill Progression Tree</h1>
+    <h1>🏐 Volleyball Skill Progression</h1>
     <div class="progress-bar-container">
-        <span class="progress-text">Progress: <span id="completed-count">0</span> / 17</span>
+        <span class="progress-text">Overall Progress: <span id="completed-count">0</span> / 8 Skills</span>
         <div class="progress-track">
             <div class="progress-fill" id="progress-fill"></div>
         </div>
-        <button class="btn-reset" onclick="resetProgress()">Reset Progress</button>
+        <button class="btn-reset" onclick="resetProgress()">Reset</button>
+    </div>
+    <div class="legend">
+        <div class="legend-item"><div class="legend-dot" style="background: var(--level1-color)"></div> Level 1</div>
+        <div class="legend-item"><div class="legend-dot" style="background: #14b8a6"></div> Isolated</div>
+        <div class="legend-item"><div class="legend-dot" style="background: var(--level2-color)"></div> Level 2</div>
+        <div class="legend-item"><div class="legend-dot" style="background: var(--combined-color)"></div> Combined</div>
+        <div class="legend-item"><div class="legend-dot" style="background: var(--final-color)"></div> Final</div>
     </div>
 </header>
 
 <div class="tree-container" id="tree-container">
     <svg class="lines-svg" id="lines-svg"></svg>
-    
-    <div class="tracks">
-        <!-- Digging Track -->
-        <div class="track track-digging" id="track-digging">
-            <div class="track-header">Digging (0/6)</div>
-        </div>
-
-        <!-- Setting Track -->
-        <div class="track track-setting" id="track-setting">
-            <div class="track-header">Setting (0/6)</div>
-        </div>
-
-        <!-- Hitting Track -->
-        <div class="track track-hitting" id="track-hitting">
-            <div class="track-header">Hitting (0/5)</div>
-        </div>
-    </div>
 </div>
 
 <!-- Modal -->
@@ -344,7 +365,7 @@
         <div class="modal-header">
             <div>
                 <div class="modal-title" id="modal-title">Skill Name</div>
-                <div class="modal-reps-badge" id="modal-reps">Target: 0 reps</div>
+                <div class="modal-subheading" id="modal-subheading">Subheading</div>
             </div>
             <button class="modal-close" onclick="closeModal()">&times;</button>
         </div>
@@ -352,216 +373,214 @@
             <p class="modal-description" id="modal-description">Skill description goes here.</p>
             
             <div class="video-container">
-                <!-- BLANK YOUTUBE LINK: Replace the 'src' value with your video URL (e.g., https://www.youtube.com/embed/VIDEO_ID) -->
+                <!-- BLANK YOUTUBE LINK: Replace src with your video URL later -->
                 <iframe id="modal-video" src="" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
             </div>
             
-            <div class="modal-actions">
-                <button class="btn btn-incomplete" id="btn-mark-incomplete" onclick="toggleSkillStatus(false)">Mark Incomplete</button>
-                <button class="btn btn-complete" id="btn-mark-complete" onclick="toggleSkillStatus(true)">Mark Complete</button>
+            <div class="variations-section">
+                <div class="variations-title">
+                    <span>📋 Drill Variations</span>
+                    <span id="modal-variation-progress" style="font-size: 0.9rem; color: #94a3b8; font-weight: normal;">(0/0)</span>
+                </div>
+                <div id="variations-list">
+                    <!-- Variations injected here -->
+                </div>
             </div>
         </div>
     </div>
 </div>
 
 <script>
-    // Enhanced Skill Data Structure based on your notes
+    // Skill Data Structure with Variations
     const skillsData = [
-        // Digging (6)
-        { 
-            id: 'd1', track: 'digging', name: 'Wall Self-Bumps', reps: '100 reps', 
-            desc: '<strong>How:</strong> Stand 2-3 feet from a wall and continuously bump the ball against it to yourself.<br><strong>Focus:</strong> Maintain a flat, locked platform. Bend your knees to absorb the impact and control the rebound height. Keep your shoulders shrugged and arms straight.', 
-            video: '' 
+        {
+            id: 'wp_l1', name: 'Wall Passing', subHeading: 'Level 1', level: '1',
+            description: 'Foundational passing drills against a wall to build platform consistency, leg drive, and ball control.',
+            video: '',
+            variations: [
+                { id: 'wp_l1_v1', name: 'Standing self bump', reps: '100' },
+                { id: 'wp_l1_v2', name: 'Wall self-bump', reps: '100' },
+                { id: 'wp_l1_v3', name: '1 arm bumps', reps: '100' }
+            ]
         },
-        { 
-            id: 'd2', track: 'digging', name: 'Standing Self-Bumps', reps: '100 reps', 
-            desc: '<strong>How:</strong> Bump the ball straight up into the air without a wall.<br><strong>Focus:</strong> Consistent height and control. Engage your legs to generate power rather than swinging your arms. Keep the ball in the center of your body line.', 
-            video: '' 
+        {
+            id: 'ws_l1', name: 'Wall Setting', subHeading: 'Level 1', level: '1',
+            description: 'Foundational setting drills against a wall to develop proper hand shape, wrist snap, and finger strength.',
+            video: '',
+            variations: [
+                { id: 'ws_l1_v1', name: 'Close wall sets', reps: '100' },
+                { id: 'ws_l1_v2', name: 'Far wall sets', reps: '80' }
+            ]
         },
-        { 
-            id: 'd3', track: 'digging', name: 'One-Arm Bumps', reps: '50 per hand', 
-            desc: '<strong>How:</strong> Pass the ball to yourself using only one arm.<br><strong>Focus:</strong> Forces proper shoulder rotation and platform alignment on your non-dominant side. Keep your elbow locked and use your legs to lift the ball.', 
-            video: '' 
+        {
+            id: 'db_iso', name: 'Down Balling', subHeading: 'Isolated', level: 'isolated',
+            description: 'Isolated hitting mechanics focusing on arm swing path, wrist snap, and solid contact without the complexity of a full approach.',
+            video: '',
+            variations: [
+                { id: 'db_iso_v1', name: 'Hold ball and hit', reps: 'Focus on form' },
+                { id: 'db_iso_v2', name: 'Arm swing down against wall (catch & retoss)', reps: 'Focus on wrist snap' }
+            ]
         },
-        { 
-            id: 'd4', track: 'digging', name: 'Alternating One-Arm Bumps', reps: '100 reps', 
-            desc: '<strong>How:</strong> Rapidly alternate arms to keep the ball in the air.<br><strong>Focus:</strong> Builds agility, quick platform adjustment, and core stability. Teaches you to recover your body position instantly after each contact.', 
-            video: '' 
+        {
+            id: 'wp_l2', name: 'Wall Passing', subHeading: 'Level 2', level: '2',
+            description: 'Advanced passing variations introducing movement, non-dominant arm usage, and reading rebounds.',
+            video: '',
+            variations: [
+                { id: 'wp_l2_v1', name: '1 arm bumps alternating', reps: '100' },
+                { id: 'wp_l2_v2', name: 'Pass to wall then pass to self', reps: '50' }
+            ]
         },
-        { 
-            id: 'd5', track: 'digging', name: 'Wall-to-Self Pass', reps: '50 reps', 
-            desc: '<strong>How:</strong> Pass the ball hard into the wall, then immediately move to control the rebound back to yourself.<br><strong>Focus:</strong> Reading the rebound angle, quick shuffle footwork, and transitioning from a hard-driven ball to a controlled, high pass.', 
-            video: '' 
+        {
+            id: 'ws_l2', name: 'Wall Setting', subHeading: 'Level 2', level: '2',
+            description: 'Advanced setting variations focusing on one-handed control and transitioning from a self-toss to a wall target.',
+            video: '',
+            variations: [
+                { id: 'ws_l2_v1', name: '1 arm setting against wall', reps: '100' },
+                { id: 'ws_l2_v2', name: 'Set to self then set to wall', reps: '50' }
+            ]
         },
-        { 
-            id: 'd6', track: 'digging', name: 'Dig-Set-Spike to Wall', reps: '30 reps (Overlap)', 
-            desc: '<strong>How:</strong> The ultimate solo drill. Throw the ball, dig the rebound, set it up for yourself, and attack it into the wall. Repeat continuously.<br><strong>Focus:</strong> Transition footwork, getting low for the dig, squaring up for the set, and finishing with a full arm swing. (This drill overlaps with Setting and Hitting tracks).', 
-            video: '' 
+        {
+            id: 'ps_comb', name: 'Pass and Set', subHeading: 'Combined Reps', level: 'combined',
+            description: 'Combining passing and setting into fluid sequences to simulate game-like transitions and improve touch versatility.',
+            video: '',
+            variations: [
+                { id: 'ps_comb_v1', name: 'Pass to wall, then set to self', reps: '50' },
+                { id: 'ps_comb_v2', name: 'Reverse set to wall (continuous)', reps: '30' }
+            ]
         },
-        
-        // Setting (6)
-        { 
-            id: 's1', track: 'setting', name: 'Close Wall Sets', reps: '100 reps', 
-            desc: '<strong>How:</strong> Stand 1-2 feet from the wall and set the ball repeatedly.<br><strong>Focus:</strong> Pure hand shape and wrist snap. Form a triangle with your thumbs and index fingers. Use only your fingers and wrists, no arm swing, to build finger strength and muscle memory.', 
-            video: '' 
+        {
+            id: 'dbp_comb', name: 'Down Ball and Pass', subHeading: 'Combined Reps', level: 'combined',
+            description: 'Transitioning from an aggressive attacking motion directly into a controlled defensive passing posture.',
+            video: '',
+            variations: [
+                { id: 'dbp_comb_v1', name: 'Dig, set, spike to wall', reps: '30' },
+                { id: 'dbp_comb_v2', name: 'Float serve against wall and overhead pass', reps: '30' }
+            ]
         },
-        { 
-            id: 's2', track: 'setting', name: 'Far Wall Sets', reps: '80 reps', 
-            desc: '<strong>How:</strong> Step back 4-6 feet from the wall and set the ball so it reaches the wall.<br><strong>Focus:</strong> Full body extension. You must bend your knees, hips, and elbows, then extend everything simultaneously to generate enough power to reach the wall.', 
-            video: '' 
-        },
-        { 
-            id: 's3', track: 'setting', name: 'One-Arm Wall Sets', reps: '100 reps', 
-            desc: '<strong>How:</strong> Set the ball against the wall using only one hand (alternate hands).<br><strong>Focus:</strong> Isolates the setting hand. Forces proper finger pad contact, wrist extension, and follow-through on both the right and left hand.', 
-            video: '' 
-        },
-        { 
-            id: 's4', track: 'setting', name: 'Self-Set to Wall Set', reps: '50 reps', 
-            desc: '<strong>How:</strong> Toss the ball to yourself, set it high into the air, then immediately move under it and set it into the wall.<br><strong>Focus:</strong> Builds rhythm and the transition from tracking a falling ball to aggressively pushing it to a target.', 
-            video: '' 
-        },
-        { 
-            id: 's5', track: 'setting', name: 'Continuous Reverse Sets', reps: '30 reps', 
-            desc: '<strong>How:</strong> Stand with your back to the wall. Toss the ball up and set it over your head to hit the wall behind you.<br><strong>Focus:</strong> Develops spatial awareness, overhead wrist action, and the ability to set accurately without looking directly at the target.', 
-            video: '' 
-        },
-        { 
-            id: 's6', track: 'setting', name: 'Dig-Set-Spike to Wall', reps: '30 reps (Overlap)', 
-            desc: '<strong>How:</strong> Same continuous drill as the digging track.<br><strong>Focus:</strong> Here, the emphasis is on the <em>setting</em> transition. Focus on creating a perfectly hittable ball out of a bad, unpredictable dig rebound before attacking.', 
-            video: '' 
-        },
-
-        // Hitting (5)
-        { 
-            id: 'h1', track: 'hitting', name: 'Stationary Ball Hit', reps: 'Focus on form', 
-            desc: '<strong>How:</strong> Have a partner (or use a stand) hold the ball at the peak of your jump reach. Jump and hit the stationary ball.<br><strong>Focus:</strong> Pure arm swing mechanics. High elbow, open chest, and snapping the wrist firmly over the top of the ball to generate topspin.', 
-            video: '' 
-        },
-        { 
-            id: 'h2', track: 'hitting', name: 'Downward Arm Swing (Catch & Retoss)', reps: 'Focus on wrist snap', 
-            desc: '<strong>How:</strong> Stand close to the wall. Toss the ball up slightly, swing your arm down and snap your wrist so the ball hits the wall and comes straight back to your hands. Catch and repeat.<br><strong>Focus:</strong> Wrist snap and solid, centered contact. The ball should return cleanly without spinning wildly.', 
-            video: '' 
-        },
-        { 
-            id: 'h3', track: 'hitting', name: 'High Toss Arm Swing (Catch & Retoss)', reps: 'Focus on contact', 
-            desc: '<strong>How:</strong> Toss the ball higher, take a small approach step, jump, and swing down onto the ball against the wall. Catch the rebound.<br><strong>Focus:</strong> Timing the peak of your jump with the contact point. Reaching high and hitting the ball at the absolute highest point possible.', 
-            video: '' 
-        },
-        { 
-            id: 'h4', track: 'hitting', name: 'Continuous Arm Swings', reps: 'Endurance focus', 
-            desc: '<strong>How:</strong> Rapid-fire hitting against the wall from a standing or slight approach position without catching the ball.<br><strong>Focus:</strong> Builds shoulder endurance, core stability, and a consistent contact point. Keep the rallies going by controlling your own rebounds.', 
-            video: '' 
-        },
-        { 
-            id: 'h5', track: 'hitting', name: 'Float Serve & Overhead Pass', reps: 'Transition focus', 
-            desc: '<strong>How:</strong> Float serve the ball hard into the wall, let it rebound, and immediately overhead pass (set) the rebound back to yourself or control it.<br><strong>Focus:</strong> Teaches solid, no-spin serve contact, followed by an immediate transition into defensive/setting footwork and posture.', 
-            video: '' 
+        {
+            id: 'wp_pepper', name: 'Wall Pepper', subHeading: 'Final Level', level: 'final',
+            description: 'The ultimate solo wall drill combining all skills into a continuous, rhythmic rally. Requires stamina, footwork, and seamless transitions.',
+            video: '',
+            variations: [
+                { id: 'wp_pepper_v1', name: 'Continuous dig-set-spike to wall', reps: '30' },
+                { id: 'wp_pepper_v2', name: 'High toss arm swing (catch & retoss)', reps: 'Focus on contact' }
+            ]
         }
     ];
 
-    // Define connections (lines) between skills
+    // DAG Connections (Top to Bottom flow)
     const connections = [
-        // Sequential Digging
-        { from: 'd1', to: 'd2' }, { from: 'd2', to: 'd3' }, { from: 'd3', to: 'd4' }, { from: 'd4', to: 'd5' }, { from: 'd5', to: 'd6' },
-        // Sequential Setting
-        { from: 's1', to: 's2' }, { from: 's2', to: 's3' }, { from: 's3', to: 's4' }, { from: 's4', to: 's5' }, { from: 's5', to: 's6' },
-        // Sequential Hitting
-        { from: 'h1', to: 'h2' }, { from: 'h2', to: 'h3' }, { from: 'h3', to: 'h4' }, { from: 'h4', to: 'h5' },
-        // Intersections (The "Graph" aspect)
-        { from: 'd6', to: 's6', type: 'intersection' }, // Dig-Set-Spike overlaps between Digging and Setting
-        { from: 's6', to: 'h5', type: 'intersection' }  // Setting transition flows into advanced Hitting transitions
+        { from: 'wp_l1', to: 'wp_l2' },
+        { from: 'ws_l1', to: 'ws_l2' },
+        { from: 'db_iso', to: 'dbp_comb' },
+        { from: 'wp_l2', to: 'ps_comb' },
+        { from: 'ws_l2', to: 'ps_comb' },
+        { from: 'ps_comb', to: 'wp_pepper' },
+        { from: 'dbp_comb', to: 'wp_pepper' }
     ];
 
-    let completedSkills = new Set(JSON.parse(localStorage.getItem('vb_completed_skills') || '[]'));
+    let completedVariations = new Set(JSON.parse(localStorage.getItem('vb_completed_variations') || '[]'));
     let currentModalSkillId = null;
 
-    // Initialize
+    function isSkillCompleted(skill) {
+        return skill.variations.every(v => completedVariations.has(v.id));
+    }
+
+    function getSkillProgress(skill) {
+        const completed = skill.variations.filter(v => completedVariations.has(v.id)).length;
+        return `${completed}/${skill.variations.length}`;
+    }
+
     function init() {
-        renderNodes();
-        setTimeout(() => {
-            drawLines();
-            updateProgress();
-        }, 150); // Slight delay to ensure DOM is rendered for accurate positioning
+        renderGraph();
+        updateOverallProgress();
         
+        let resizeTimer;
         window.addEventListener('resize', () => {
-            drawLines();
+            clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(renderGraph, 250);
         });
     }
 
-    function renderNodes() {
-        const tracks = {
-            digging: document.getElementById('track-digging'),
-            setting: document.getElementById('track-setting'),
-            hitting: document.getElementById('track-hitting')
-        };
-
-        // Clear existing nodes (keep headers)
-        Object.values(tracks).forEach(track => {
-            const header = track.querySelector('.track-header');
-            track.innerHTML = '';
-            track.appendChild(header);
+    function renderGraph() {
+        const container = document.getElementById('tree-container');
+        const svg = document.getElementById('lines-svg');
+        
+        const g = new dagre.graphlib.Graph();
+        g.setGraph({ 
+            rankdir: 'TB',
+            nodesep: 80,
+            ranksep: 120,
+            marginx: 20,
+            marginy: 20
         });
+        g.setDefaultEdgeLabel(() => ({}));
 
         skillsData.forEach(skill => {
-            const node = document.createElement('div');
-            node.className = `skill-node ${completedSkills.has(skill.id) ? 'completed' : ''}`;
-            node.id = `node-${skill.id}`;
-            node.onclick = () => openModal(skill.id);
-            
-            node.innerHTML = `
-                <div class="skill-name">${skill.name}</div>
-                <div class="skill-reps">${skill.reps}</div>
-                <div class="skill-track-label">${skill.track}</div>
-            `;
-            
-            tracks[skill.track].appendChild(node);
+            g.setNode(skill.id, { 
+                label: skill.name, 
+                width: 200, 
+                height: 110,
+                data: skill
+            });
         });
-
-        // Update track headers with counts
-        ['digging', 'setting', 'hitting'].forEach(track => {
-            const total = skillsData.filter(s => s.track === track).length;
-            const completed = skillsData.filter(s => s.track === track && completedSkills.has(s.id)).length;
-            const header = document.querySelector(`.track-${track} .track-header`);
-            header.textContent = `${track.charAt(0).toUpperCase() + track.slice(1)} (${completed}/${total})`;
-        });
-    }
-
-    function drawLines() {
-        const svg = document.getElementById('lines-svg');
-        svg.innerHTML = ''; // Clear existing lines
-        
-        const containerRect = document.getElementById('tree-container').getBoundingClientRect();
 
         connections.forEach(conn => {
-            const fromEl = document.getElementById(`node-${conn.from}`);
-            const toEl = document.getElementById(`node-${conn.to}`);
+            g.setEdge(conn.from, conn.to, { data: conn });
+        });
+
+        dagre.layout(g);
+
+        const graphSize = g.graph();
+        container.style.width = `${graphSize.width}px`;
+        container.style.height = `${graphSize.height}px`;
+        svg.setAttribute('width', graphSize.width);
+        svg.setAttribute('height', graphSize.height);
+        svg.innerHTML = '';
+
+        const oldNodes = container.querySelectorAll('.skill-node');
+        oldNodes.forEach(n => n.remove());
+
+        g.nodes().forEach(nodeId => {
+            const node = g.node(nodeId);
+            const skill = node.data;
+            const isCompleted = isSkillCompleted(skill);
             
-            if (!fromEl || !toEl) return;
+            const el = document.createElement('div');
+            el.className = `skill-node ${isCompleted ? 'completed' : ''}`;
+            el.id = `node-${nodeId}`;
+            el.setAttribute('data-level', skill.level);
+            
+            el.style.left = `${node.x - node.width / 2}px`;
+            el.style.top = `${node.y - node.height / 2}px`;
+            el.style.width = `${node.width}px`;
+            el.style.height = `${node.height}px`;
+            
+            el.innerHTML = `
+                <div class="skill-name">${skill.name}</div>
+                <div class="skill-subheading">${skill.subHeading}</div>
+                <div class="skill-progress">${getSkillProgress(skill)} done</div>
+            `;
+            
+            el.onclick = () => openModal(nodeId);
+            container.appendChild(el);
+        });
 
-            const fromRect = fromEl.getBoundingClientRect();
-            const toRect = toEl.getBoundingClientRect();
-
-            // Calculate center points relative to the SVG container
-            const x1 = fromRect.left + fromRect.width / 2 - containerRect.left;
-            const y1 = fromRect.top + fromRect.height / 2 - containerRect.top;
-            const x2 = toRect.left + toRect.width / 2 - containerRect.left;
-            const y2 = toRect.top + toRect.height / 2 - containerRect.top;
-
-            // Create path
+        g.edges().forEach(edgeId => {
+            const edge = g.edge(edgeId);
+            const conn = edge.data;
+            const fromSkill = skillsData.find(s => s.id === conn.from);
+            const toSkill = skillsData.find(s => s.id === conn.to);
+            const isCompleted = isSkillCompleted(fromSkill) && isSkillCompleted(toSkill);
+            
             const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-            
-            // Bezier curve for smooth graph look
-            const midY = (y1 + y2) / 2;
-            const d = `M ${x1} ${y1} C ${x1} ${midY}, ${x2} ${midY}, ${x2} ${y2}`;
+            let d = `M ${edge.points[0].x} ${edge.points[0].y}`;
+            for (let i = 1; i < edge.points.length; i++) {
+                d += ` L ${edge.points[i].x} ${edge.points[i].y}`;
+            }
             
             path.setAttribute('d', d);
-            path.setAttribute('class', `connection-line ${conn.type === 'intersection' ? 'intersection-line' : ''}`);
-            
-            // Highlight line statically if both connected skills are completed
-            if (completedSkills.has(conn.from) && completedSkills.has(conn.to)) {
-                path.classList.add('completed-path');
-            }
-
+            path.setAttribute('class', `connection-line ${isCompleted ? 'completed-path' : ''}`);
             svg.appendChild(path);
         });
     }
@@ -571,72 +590,86 @@
         const skill = skillsData.find(s => s.id === skillId);
         
         document.getElementById('modal-title').textContent = skill.name;
-        document.getElementById('modal-reps').textContent = `Target: ${skill.reps}`;
-        document.getElementById('modal-description').innerHTML = skill.desc;
-        
-        // Set video source (Blank by default as requested)
+        document.getElementById('modal-subheading').textContent = skill.subHeading;
+        document.getElementById('modal-description').innerHTML = skill.description;
         document.getElementById('modal-video').src = skill.video || ""; 
 
-        // Update button states
-        const isComplete = completedSkills.has(skillId);
-        document.getElementById('btn-mark-complete').style.display = isComplete ? 'none' : 'inline-block';
-        document.getElementById('btn-mark-incomplete').style.display = isComplete ? 'inline-block' : 'none';
+        const variationsList = document.getElementById('variations-list');
+        variationsList.innerHTML = '';
+        
+        let completedCount = 0;
+        skill.variations.forEach(variation => {
+            const isDone = completedVariations.has(variation.id);
+            if (isDone) completedCount++;
 
+            const item = document.createElement('div');
+            item.className = `variation-item ${isDone ? 'completed' : ''}`;
+            item.onclick = (e) => {
+                if (e.target.type !== 'checkbox') {
+                    toggleVariation(variation.id);
+                }
+            };
+
+            item.innerHTML = `
+                <input type="checkbox" class="variation-checkbox" 
+                       ${isDone ? 'checked' : ''} 
+                       onchange="toggleVariation('${variation.id}')">
+                <div class="variation-details">
+                    <span class="variation-name">${variation.name}</span>
+                    <span class="variation-reps">${variation.reps}</span>
+                </div>
+            `;
+            variationsList.appendChild(item);
+        });
+
+        document.getElementById('modal-variation-progress').textContent = `(${completedCount}/${skill.variations.length})`;
         document.getElementById('skill-modal').classList.add('active');
+    }
+
+    function toggleVariation(variationId) {
+        if (completedVariations.has(variationId)) {
+            completedVariations.delete(variationId);
+        } else {
+            completedVariations.add(variationId);
+        }
+
+        localStorage.setItem('vb_completed_variations', JSON.stringify([...completedVariations]));
+        
+        if (currentModalSkillId) {
+            openModal(currentModalSkillId);
+        }
+        renderGraph();
+        updateOverallProgress();
     }
 
     function closeModal() {
         document.getElementById('skill-modal').classList.remove('active');
-        document.getElementById('modal-video').src = ""; // Stop video playback
+        document.getElementById('modal-video').src = ""; 
         currentModalSkillId = null;
     }
 
-    function toggleSkillStatus(isComplete) {
-        if (!currentModalSkillId) return;
+    function updateOverallProgress() {
+        const totalSkills = skillsData.length;
+        const completedSkills = skillsData.filter(isSkillCompleted).length;
+        const percentage = (completedSkills / totalSkills) * 100;
 
-        if (isComplete) {
-            completedSkills.add(currentModalSkillId);
-        } else {
-            completedSkills.delete(currentModalSkillId);
-        }
-
-        // Save to localStorage
-        localStorage.setItem('vb_completed_skills', JSON.stringify([...completedSkills]));
-
-        // Refresh UI
-        renderNodes();
-        drawLines();
-        updateProgress();
-        closeModal();
-    }
-
-    function updateProgress() {
-        const total = skillsData.length;
-        const completed = completedSkills.size;
-        const percentage = (completed / total) * 100;
-
-        document.getElementById('completed-count').textContent = completed;
+        document.getElementById('completed-count').textContent = completedSkills;
         document.getElementById('progress-fill').style.width = `${percentage}%`;
     }
 
     function resetProgress() {
         if (confirm('Are you sure you want to reset all progress?')) {
-            completedSkills.clear();
-            localStorage.removeItem('vb_completed_skills');
-            renderNodes();
-            drawLines();
-            updateProgress();
+            completedVariations.clear();
+            localStorage.removeItem('vb_completed_variations');
+            renderGraph();
+            updateOverallProgress();
         }
     }
 
-    // Close modal when clicking outside
     document.getElementById('skill-modal').addEventListener('click', (e) => {
-        if (e.target.id === 'skill-modal') {
-            closeModal();
-        }
+        if (e.target.id === 'skill-modal') closeModal();
     });
 
-    // Start
     init();
 </script>
 
