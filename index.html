@@ -146,6 +146,7 @@
             border: 1px solid var(--border-color);
             overflow: hidden;
             max-height: calc(100vh - 180px);
+            min-height: 400px;
             box-shadow: var(--shadow);
             transition: background-color 0.3s ease, border-color 0.3s ease;
             touch-action: none;
@@ -153,17 +154,12 @@
 
         .tree-container {
             position: relative;
-            width: 100%;
-            height: 100%;
             overflow: visible;
             cursor: grab;
+            transform-origin: 0 0;
         }
 
-        .tree-container:active {
-            cursor: grabbing;
-        }
-
-        .tree-container.panning {
+        .tree-container:active, .tree-container.panning {
             cursor: grabbing;
         }
 
@@ -206,7 +202,6 @@
             padding: 8px;
             min-width: 140px;
             color: var(--text-color);
-            transform-origin: center center;
         }
 
         .skill-node:active {
@@ -732,8 +727,12 @@
 
     function resetZoom() {
         scale = 1;
-        pointX = 0;
-        pointY = 0;
+        // Recenter
+        const wrapper = document.getElementById('tree-wrapper');
+        const wrapperWidth = wrapper.clientWidth;
+        const wrapperHeight = wrapper.clientHeight;
+        pointX = (wrapperWidth - graphWidth) / 2;
+        pointY = (wrapperHeight - graphHeight) / 2;
         setTransform();
     }
 
@@ -743,7 +742,7 @@
         
         // Mouse events
         container.addEventListener('mousedown', (e) => {
-            if (e.target === container || e.target.tagName === 'svg') {
+            if (e.target === container || e.target.tagName === 'svg' || e.target.classList.contains('lines-svg')) {
                 e.preventDefault();
                 panning = true;
                 startX = e.clientX - pointX;
@@ -767,14 +766,13 @@
 
         // Touch events for mobile
         container.addEventListener('touchstart', (e) => {
-            if (e.target === container || e.target.tagName === 'svg') {
+            if (e.target === container || e.target.tagName === 'svg' || e.target.classList.contains('lines-svg')) {
                 if (e.touches.length === 1) {
                     panning = true;
                     startX = e.touches[0].clientX - pointX;
                     startY = e.touches[0].clientY - pointY;
                     container.classList.add('panning');
                 } else if (e.touches.length === 2) {
-                    // Pinch zoom
                     panning = false;
                     container.classList.remove('panning');
                 }
@@ -788,7 +786,6 @@
                 pointY = e.touches[0].clientY - startY;
                 setTransform();
             } else if (e.touches.length === 2) {
-                // Pinch zoom
                 e.preventDefault();
                 const dist = Math.hypot(
                     e.touches[0].pageX - e.touches[1].pageX,
@@ -843,7 +840,6 @@
             clearTimeout(resizeTimer);
             resizeTimer = setTimeout(() => {
                 resetZoom();
-                renderGraph();
             }, 250);
         });
     }
@@ -883,9 +879,13 @@
         graphWidth = graphSize.width;
         graphHeight = graphSize.height;
         
+        // FIX: Set container size to match graph so absolute positioning works and isn't clipped
+        container.style.width = `${graphWidth}px`;
+        container.style.height = `${graphHeight}px`;
+
         // Set SVG size
-        svg.setAttribute('width', graphSize.width);
-        svg.setAttribute('height', graphSize.height);
+        svg.setAttribute('width', graphWidth);
+        svg.setAttribute('height', graphHeight);
         svg.innerHTML = '';
 
         // Clear old nodes
@@ -938,10 +938,11 @@
             svg.appendChild(path);
         });
 
-        // Center the graph initially on mobile
-        if (isMobile && scale === 1) {
-            const wrapperWidth = wrapper.clientWidth;
-            const wrapperHeight = wrapper.clientHeight;
+        // Center the graph initially
+        const wrapperWidth = wrapper.clientWidth;
+        const wrapperHeight = wrapper.clientHeight;
+        
+        if (scale === 1 && pointX === 0 && pointY === 0) {
             pointX = (wrapperWidth - graphWidth) / 2;
             pointY = (wrapperHeight - graphHeight) / 2;
             setTransform();
