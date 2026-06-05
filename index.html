@@ -7,15 +7,63 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/dagre/0.8.5/dagre.min.js"></script>
     <style>
         :root {
-            --level1-color: #3b82f6;
-            --level2-color: #8b5cf6;
-            --combined-color: #f59e0b;
-            --final-color: #ef4444;
+            /* Light Theme (Default) */
+            --bg-color: #f0f4f8;
+            --card-bg: #ffffff;
+            --text-color: #1e293b;
+            --text-secondary: #64748b;
+            --border-color: #e2e8f0;
+            --line-color: #cbd5e1;
+            --completed-color: #22c55e;
+            --header-bg: #ffffff;
+            --container-bg: #ffffff;
+            --variation-bg: #f8fafc;
+            --variation-hover: #f1f5f9;
+            --badge-bg: #e2e8f0;
+            --badge-text: #475569;
+            --reps-badge-bg: #fef3c7;
+            --reps-badge-text: #d97706;
+            --shadow: 0 4px 6px rgba(0, 0, 0, 0.07);
+            --shadow-hover: 0 12px 20px rgba(0, 0, 0, 0.1);
+            --modal-overlay: rgba(0, 0, 0, 0.5);
+            
+            /* Track Colors - Light Theme */
+            --set-color: #3b82f6;
+            --dig-color: #10b981;
+            --hit-color: #f97316;
+            --combined-color: #14b8a6;
+            --final-color: #8b5cf6;
+            --isolated-color: #f97316;
+        }
+
+        [data-theme="dark"] {
+            /* Dark Theme */
             --bg-color: #0f172a;
             --card-bg: #1e293b;
             --text-color: #f8fafc;
+            --text-secondary: #94a3b8;
+            --border-color: #334155;
             --line-color: #475569;
             --completed-color: #22c55e;
+            --header-bg: #1e293b;
+            --container-bg: #1e293b;
+            --variation-bg: #0f172a;
+            --variation-hover: #263345;
+            --badge-bg: #334155;
+            --badge-text: #cbd5e1;
+            --reps-badge-bg: #451a03;
+            --reps-badge-text: #fbbf24;
+            --shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+            --shadow-hover: 0 12px 20px rgba(0, 0, 0, 0.4);
+            --modal-overlay: rgba(0, 0, 0, 0.85);
+            
+            /* Track Colors - Dark Theme */
+            --set-color: #60a5fa;
+            --dig-color: #34d399;
+            --hit-color: #fb923c;
+            --combined-color: #2dd4bf;
+            --final-color: #a78bfa;
+            --isolated-color: #fb923c;
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
@@ -28,17 +76,19 @@
             display: flex;
             flex-direction: column;
             overflow-x: hidden;
+            transition: background-color 0.3s ease, color 0.3s ease;
         }
 
         header {
             text-align: center;
             padding: 15px 10px;
-            background: var(--card-bg);
-            border-bottom: 1px solid #334155;
+            background: var(--header-bg);
+            border-bottom: 1px solid var(--border-color);
             position: sticky;
             top: 0;
             z-index: 100;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            box-shadow: var(--shadow);
+            transition: background-color 0.3s ease, border-color 0.3s ease;
         }
 
         h1 { margin-bottom: 8px; font-size: 1.4rem; }
@@ -55,9 +105,9 @@
         .progress-text { font-size: 0.9rem; font-weight: bold; }
         
         .progress-track {
-            width: 200px;
+            width: 150px;
             height: 10px;
-            background: #334155;
+            background: var(--badge-bg);
             border-radius: 6px;
             overflow: hidden;
         }
@@ -69,8 +119,8 @@
             transition: width 0.5s ease;
         }
 
-        .btn-reset {
-            background: #ef4444;
+        .btn-reset, .btn-theme {
+            background: var(--hit-color);
             color: white;
             border: none;
             padding: 6px 12px;
@@ -78,33 +128,49 @@
             cursor: pointer;
             font-weight: bold;
             font-size: 0.85rem;
-            transition: background 0.2s;
+            transition: all 0.2s;
         }
-        .btn-reset:active { background: #dc2626; transform: scale(0.95); }
+        .btn-reset:hover, .btn-theme:hover { opacity: 0.9; transform: translateY(-1px); }
+        .btn-reset:active, .btn-theme:active { transform: scale(0.95); }
+
+        .btn-theme {
+            background: var(--set-color);
+            margin-left: 5px;
+        }
+
+        .tree-wrapper {
+            position: relative;
+            margin: 20px auto;
+            background: var(--container-bg);
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+            overflow: hidden;
+            max-height: calc(100vh - 180px);
+            box-shadow: var(--shadow);
+            transition: background-color 0.3s ease, border-color 0.3s ease;
+            touch-action: none;
+        }
 
         .tree-container {
             position: relative;
-            margin: 20px auto;
-            background: rgba(30, 41, 59, 0.3);
-            border-radius: 12px;
-            border: 1px solid #334155;
-            overflow: auto;
-            max-height: calc(100vh - 180px);
-            padding: 15px;
-            
-            scrollbar-width: none;
-            -ms-overflow-style: none;
-            -webkit-overflow-scrolling: touch;
+            width: 100%;
+            height: 100%;
+            overflow: visible;
+            cursor: grab;
         }
 
-        .tree-container::-webkit-scrollbar {
-            display: none;
+        .tree-container:active {
+            cursor: grabbing;
+        }
+
+        .tree-container.panning {
+            cursor: grabbing;
         }
 
         .lines-svg {
             position: absolute;
-            top: 15px;
-            left: 15px;
+            top: 0;
+            left: 0;
             pointer-events: none;
             z-index: 1;
         }
@@ -126,19 +192,21 @@
         .skill-node {
             position: absolute;
             background: var(--card-bg);
-            border: 2px solid var(--line-color);
+            border: 2px solid var(--border-color);
             border-radius: 10px;
             text-align: center;
             cursor: pointer;
             transition: all 0.2s ease;
             z-index: 3;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+            box-shadow: var(--shadow);
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
             padding: 8px;
             min-width: 140px;
+            color: var(--text-color);
+            transform-origin: center center;
         }
 
         .skill-node:active {
@@ -168,21 +236,67 @@
             box-shadow: 0 2px 4px rgba(0,0,0,0.3);
         }
 
-        .skill-node[data-level="1"] { border-top: 3px solid var(--level1-color); }
-        .skill-node[data-level="2"] { border-top: 3px solid var(--level2-color); }
+        .skill-node[data-level="1"] { border-top: 3px solid var(--set-color); }
+        .skill-node[data-level="2"] { border-top: 3px solid var(--set-color); }
         .skill-node[data-level="combined"] { border-top: 3px solid var(--combined-color); }
         .skill-node[data-level="final"] { border-top: 3px solid var(--final-color); }
-        .skill-node[data-level="isolated"] { border-top: 3px solid #14b8a6; }
+        .skill-node[data-level="isolated"] { border-top: 3px solid var(--isolated-color); }
+        .skill-node[data-track="dig"] { border-top: 3px solid var(--dig-color); }
 
         .skill-name { font-weight: bold; font-size: 0.85rem; margin-bottom: 3px; line-height: 1.2; word-wrap: break-word; max-width: 100%; }
-        .skill-subheading { font-size: 0.65rem; color: #94a3b8; font-weight: 600; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
-        .skill-progress { font-size: 0.7rem; color: #cbd5e1; font-weight: bold; background: #334155; padding: 2px 6px; border-radius: 8px; }
+        .skill-subheading { font-size: 0.65rem; color: var(--text-secondary); font-weight: 600; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .skill-progress { font-size: 0.7rem; color: var(--text-color); font-weight: bold; background: var(--badge-bg); padding: 2px 6px; border-radius: 8px; }
+
+        .zoom-controls {
+            position: absolute;
+            bottom: 15px;
+            right: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            z-index: 10;
+        }
+
+        .zoom-btn {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: var(--card-bg);
+            border: 2px solid var(--border-color);
+            color: var(--text-color);
+            font-size: 1.2rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: var(--shadow);
+            transition: all 0.2s;
+        }
+
+        .zoom-btn:active {
+            transform: scale(0.9);
+            background: var(--variation-hover);
+        }
+
+        .zoom-hint {
+            position: absolute;
+            bottom: 15px;
+            left: 15px;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 6px 10px;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            z-index: 10;
+            pointer-events: none;
+            opacity: 0.8;
+        }
 
         .modal-overlay {
             display: none;
             position: fixed;
             top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0, 0, 0, 0.9);
+            background: var(--modal-overlay);
             z-index: 1000;
             justify-content: center;
             align-items: flex-end;
@@ -199,8 +313,9 @@
             max-height: 85vh;
             overflow-y: auto;
             position: relative;
-            border: 1px solid #334155;
-            box-shadow: 0 -4px 20px rgba(0,0,0,0.5);
+            border: 1px solid var(--border-color);
+            box-shadow: var(--shadow-hover);
+            color: var(--text-color);
             animation: slideUp 0.3s ease;
             
             scrollbar-width: none;
@@ -218,7 +333,7 @@
 
         .modal-header {
             padding: 20px 15px;
-            border-bottom: 1px solid #334155;
+            border-bottom: 1px solid var(--border-color);
             display: flex;
             justify-content: space-between;
             align-items: flex-start;
@@ -229,13 +344,13 @@
             border-radius: 20px 20px 0 0;
         }
 
-        .modal-title { font-size: 1.2rem; font-weight: bold; color: white; margin-bottom: 4px; }
-        .modal-subheading { font-size: 0.8rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; }
+        .modal-title { font-size: 1.2rem; font-weight: bold; color: var(--text-color); margin-bottom: 4px; }
+        .modal-subheading { font-size: 0.8rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; }
         
         .modal-close {
             background: rgba(255,255,255,0.1);
             border: none;
-            color: white;
+            color: var(--text-color);
             width: 36px;
             height: 36px;
             border-radius: 50%;
@@ -255,7 +370,7 @@
         .modal-description {
             margin-bottom: 20px;
             line-height: 1.6;
-            color: #cbd5e1;
+            color: var(--text-color);
             font-size: 0.95rem;
         }
 
@@ -267,7 +382,7 @@
             border-radius: 8px;
             overflow: hidden;
             margin-bottom: 20px;
-            border: 1px solid #334155;
+            border: 1px solid var(--border-color);
         }
 
         .video-container iframe {
@@ -277,17 +392,17 @@
         }
 
         .variations-section {
-            background: rgba(15, 23, 42, 0.5);
+            background: var(--variation-bg);
             border-radius: 10px;
             padding: 15px;
-            border: 1px solid #334155;
+            border: 1px solid var(--border-color);
         }
 
         .variations-title {
             font-size: 1rem;
             font-weight: bold;
             margin-bottom: 12px;
-            color: white;
+            color: var(--text-color);
             display: flex;
             align-items: center;
             gap: 6px;
@@ -301,7 +416,7 @@
             margin-bottom: 8px;
             background: var(--card-bg);
             border-radius: 8px;
-            border: 1px solid #475569;
+            border: 1px solid var(--border-color);
             cursor: pointer;
             transition: all 0.2s;
             min-height: 50px;
@@ -309,7 +424,7 @@
 
         .variation-item:active {
             transform: scale(0.98);
-            background: #263345;
+            background: var(--variation-hover);
         }
 
         .variation-item.completed {
@@ -336,22 +451,60 @@
             min-width: 0;
         }
 
-        .variation-name { font-weight: 500; color: #f8fafc; font-size: 0.9rem; word-wrap: break-word; }
-        .variation-reps { font-size: 0.8rem; color: #fbbf24; font-weight: bold; background: #334155; padding: 2px 8px; border-radius: 4px; align-self: flex-start; }
+        .variation-name { font-weight: 500; color: var(--text-color); font-size: 0.9rem; word-wrap: break-word; }
+        .variation-reps { font-size: 0.8rem; color: var(--reps-badge-text); font-weight: bold; background: var(--reps-badge-bg); padding: 2px 8px; border-radius: 4px; align-self: flex-start; }
 
         .legend {
             display: flex;
             justify-content: center;
-            gap: 10px;
+            gap: 8px;
             margin-top: 10px;
-            font-size: 0.75rem;
+            font-size: 0.7rem;
             flex-wrap: wrap;
         }
-        .legend-item { display: flex; align-items: center; gap: 4px; }
+        .legend-item { display: flex; align-items: center; gap: 4px; color: var(--text-color); }
         .legend-dot { width: 10px; height: 10px; border-radius: 50%; }
 
         /* Desktop styles */
         @media (min-width: 768px) {
+            h1 { font-size: 1.8rem; }
+            
+            .progress-bar-container {
+                gap: 15px;
+            }
+            
+            .progress-track {
+                width: 300px;
+                height: 12px;
+            }
+            
+            .progress-text { font-size: 1.1rem; }
+            
+            .btn-reset, .btn-theme {
+                padding: 8px 16px;
+                font-size: 0.95rem;
+            }
+            
+            .tree-wrapper {
+                margin: 40px auto;
+                max-height: calc(100vh - 220px);
+                border-radius: 16px;
+            }
+            
+            .skill-node {
+                min-width: 160px;
+                padding: 12px;
+            }
+            
+            .skill-name { font-size: 1rem; }
+            .skill-subheading { font-size: 0.75rem; }
+            .skill-progress { font-size: 0.8rem; }
+            
+            .zoom-hint {
+                font-size: 0.85rem;
+                padding: 8px 12px;
+            }
+            
             .modal-overlay {
                 align-items: center;
                 padding: 20px;
@@ -368,22 +521,10 @@
                 from { opacity: 0; transform: scale(0.95); }
                 to { opacity: 1; transform: scale(1); }
             }
-            
-            .skill-node {
-                min-width: 160px;
-                padding: 12px;
-            }
-            
-            .skill-name { font-size: 1rem; }
-            .skill-subheading { font-size: 0.75rem; }
-            .skill-progress { font-size: 0.8rem; }
         }
 
         @media (max-width: 480px) {
             h1 { font-size: 1.2rem; }
-            .progress-track { width: 150px; }
-            .progress-text { font-size: 0.85rem; }
-            .tree-container { max-height: calc(100vh - 160px); padding: 10px; }
             .skill-node { min-width: 120px; padding: 6px; }
             .skill-name { font-size: 0.75rem; }
             .skill-subheading { font-size: 0.6rem; }
@@ -401,18 +542,27 @@
             <div class="progress-fill" id="progress-fill"></div>
         </div>
         <button class="btn-reset" onclick="resetProgress()">Reset</button>
+        <button class="btn-theme" onclick="toggleTheme()" id="theme-btn">🌙 Dark</button>
     </div>
     <div class="legend">
-        <div class="legend-item"><div class="legend-dot" style="background: var(--level1-color)"></div> Level 1</div>
-        <div class="legend-item"><div class="legend-dot" style="background: #14b8a6"></div> Isolated</div>
-        <div class="legend-item"><div class="legend-dot" style="background: var(--level2-color)"></div> Level 2</div>
+        <div class="legend-item"><div class="legend-dot" style="background: var(--set-color)"></div> Set</div>
+        <div class="legend-item"><div class="legend-dot" style="background: var(--dig-color)"></div> Dig</div>
+        <div class="legend-item"><div class="legend-dot" style="background: var(--hit-color)"></div> Hit</div>
         <div class="legend-item"><div class="legend-dot" style="background: var(--combined-color)"></div> Combined</div>
         <div class="legend-item"><div class="legend-dot" style="background: var(--final-color)"></div> Final</div>
     </div>
 </header>
 
-<div class="tree-container" id="tree-container">
-    <svg class="lines-svg" id="lines-svg"></svg>
+<div class="tree-wrapper" id="tree-wrapper">
+    <div class="tree-container" id="tree-container">
+        <svg class="lines-svg" id="lines-svg"></svg>
+    </div>
+    <div class="zoom-hint">👆 Drag to pan • Pinch to zoom</div>
+    <div class="zoom-controls">
+        <button class="zoom-btn" onclick="zoomIn()" title="Zoom In">+</button>
+        <button class="zoom-btn" onclick="zoomOut()" title="Zoom Out">−</button>
+        <button class="zoom-btn" onclick="resetZoom()" title="Reset View">⟲</button>
+    </div>
 </div>
 
 <!-- Modal -->
@@ -435,7 +585,7 @@
             <div class="variations-section">
                 <div class="variations-title">
                     <span>📋 Drill Variations</span>
-                    <span id="modal-variation-progress" style="font-size: 0.85rem; color: #94a3b8; font-weight: normal;">(0/0)</span>
+                    <span id="modal-variation-progress" style="font-size: 0.85rem; color: var(--text-secondary); font-weight: normal;">(0/0)</span>
                 </div>
                 <div id="variations-list"></div>
             </div>
@@ -446,7 +596,16 @@
 <script>
     const skillsData = [
         {
-            id: 'wp_l1', name: 'Wall Passing', subHeading: 'Level 1', level: '1',
+            id: 'ws_l1', name: 'Wall Setting', subHeading: 'Level 1', level: '1', track: 'set',
+            description: 'Foundational setting drills against a wall to develop proper hand shape, wrist snap, and finger strength.',
+            video: '',
+            variations: [
+                { id: 'ws_l1_v1', name: 'Close wall sets', reps: '100' },
+                { id: 'ws_l1_v2', name: 'Far wall sets', reps: '80' }
+            ]
+        },
+        {
+            id: 'wp_l1', name: 'Wall Passing', subHeading: 'Level 1', level: '1', track: 'dig',
             description: 'Foundational passing drills against a wall to build platform consistency, leg drive, and ball control.',
             video: '',
             variations: [
@@ -456,16 +615,7 @@
             ]
         },
         {
-            id: 'ws_l1', name: 'Wall Setting', subHeading: 'Level 1', level: '1',
-            description: 'Foundational setting drills against a wall to develop proper hand shape, wrist snap, and finger strength.',
-            video: '',
-            variations: [
-                { id: 'ws_l1_v1', name: 'Close wall sets', reps: '100' },
-                { id: 'ws_l1_v2', name: 'Far wall sets', reps: '80' }
-            ]
-        },
-        {
-            id: 'db_iso', name: 'Down Balling', subHeading: 'Isolated', level: 'isolated',
+            id: 'db_iso', name: 'Down Balling', subHeading: 'Isolated Rep', level: 'isolated', track: 'hit',
             description: 'Isolated hitting mechanics focusing on arm swing path, wrist snap, and solid contact without the complexity of a full approach.',
             video: '',
             variations: [
@@ -474,16 +624,7 @@
             ]
         },
         {
-            id: 'wp_l2', name: 'Wall Passing', subHeading: 'Level 2', level: '2',
-            description: 'Advanced passing variations introducing movement, non-dominant arm usage, and reading rebounds.',
-            video: '',
-            variations: [
-                { id: 'wp_l2_v1', name: '1 arm bumps alternating', reps: '100' },
-                { id: 'wp_l2_v2', name: 'Pass to wall then pass to self', reps: '50' }
-            ]
-        },
-        {
-            id: 'ws_l2', name: 'Wall Setting', subHeading: 'Level 2', level: '2',
+            id: 'ws_l2', name: 'Wall Setting', subHeading: 'Level 2', level: '2', track: 'set',
             description: 'Advanced setting variations focusing on one-handed control and transitioning from a self-toss to a wall target.',
             video: '',
             variations: [
@@ -492,7 +633,16 @@
             ]
         },
         {
-            id: 'ps_comb', name: 'Pass and Set', subHeading: 'Combined Reps', level: 'combined',
+            id: 'wp_l2', name: 'Wall Passing', subHeading: 'Level 2', level: '2', track: 'dig',
+            description: 'Advanced passing variations introducing movement, non-dominant arm usage, and reading rebounds.',
+            video: '',
+            variations: [
+                { id: 'wp_l2_v1', name: '1 arm bumps alternating', reps: '100' },
+                { id: 'wp_l2_v2', name: 'Pass to wall then pass to self', reps: '50' }
+            ]
+        },
+        {
+            id: 'ps_comb', name: 'Pass & Set', subHeading: 'Combined Rep', level: 'combined', track: 'combined',
             description: 'Combining passing and setting into fluid sequences to simulate game-like transitions and improve touch versatility.',
             video: '',
             variations: [
@@ -501,7 +651,7 @@
             ]
         },
         {
-            id: 'dbp_comb', name: 'Down Ball and Pass', subHeading: 'Combined Reps', level: 'combined',
+            id: 'dbp_comb', name: 'Down Ball & Pass', subHeading: 'Combined Rep', level: 'combined', track: 'combined',
             description: 'Transitioning from an aggressive attacking motion directly into a controlled defensive passing posture.',
             video: '',
             variations: [
@@ -510,7 +660,7 @@
             ]
         },
         {
-            id: 'wp_pepper', name: 'Wall Pepper', subHeading: 'Final Level', level: 'final',
+            id: 'wp_pepper', name: 'Wall Pepper', subHeading: 'Integrated Drill ★', level: 'final', track: 'final',
             description: 'The ultimate solo wall drill combining all skills into a continuous, rhythmic rally. Requires stamina, footwork, and seamless transitions.',
             video: '',
             variations: [
@@ -521,17 +671,157 @@
     ];
 
     const connections = [
-        { from: 'wp_l1', to: 'wp_l2' },
         { from: 'ws_l1', to: 'ws_l2' },
+        { from: 'wp_l1', to: 'wp_l2' },
         { from: 'db_iso', to: 'dbp_comb' },
-        { from: 'wp_l2', to: 'ps_comb' },
         { from: 'ws_l2', to: 'ps_comb' },
+        { from: 'wp_l2', to: 'ps_comb' },
+        { from: 'wp_l2', to: 'dbp_comb' },
         { from: 'ps_comb', to: 'wp_pepper' },
         { from: 'dbp_comb', to: 'wp_pepper' }
     ];
 
     let completedVariations = new Set(JSON.parse(localStorage.getItem('vb_completed_variations') || '[]'));
     let currentModalSkillId = null;
+    
+    // Pan and Zoom state
+    let scale = 1;
+    let panning = false;
+    let pointX = 0;
+    let pointY = 0;
+    let startX = 0;
+    let startY = 0;
+    let graphWidth = 0;
+    let graphHeight = 0;
+
+    // Theme Management
+    function initTheme() {
+        const savedTheme = localStorage.getItem('vb_theme') || 'light';
+        document.documentElement.setAttribute('data-theme', savedTheme);
+        updateThemeButton(savedTheme);
+    }
+
+    function toggleTheme() {
+        const currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
+        const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+        document.documentElement.setAttribute('data-theme', newTheme);
+        localStorage.setItem('vb_theme', newTheme);
+        updateThemeButton(newTheme);
+    }
+
+    function updateThemeButton(theme) {
+        const btn = document.getElementById('theme-btn');
+        btn.textContent = theme === 'light' ? '🌙 Dark' : '☀️ Light';
+    }
+
+    // Pan and Zoom Functions
+    function setTransform() {
+        const container = document.getElementById('tree-container');
+        container.style.transform = `translate(${pointX}px, ${pointY}px) scale(${scale})`;
+    }
+
+    function zoomIn() {
+        scale = Math.min(scale * 1.2, 3);
+        setTransform();
+    }
+
+    function zoomOut() {
+        scale = Math.max(scale / 1.2, 0.3);
+        setTransform();
+    }
+
+    function resetZoom() {
+        scale = 1;
+        pointX = 0;
+        pointY = 0;
+        setTransform();
+    }
+
+    function initPanZoom() {
+        const wrapper = document.getElementById('tree-wrapper');
+        const container = document.getElementById('tree-container');
+        
+        // Mouse events
+        container.addEventListener('mousedown', (e) => {
+            if (e.target === container || e.target.tagName === 'svg') {
+                e.preventDefault();
+                panning = true;
+                startX = e.clientX - pointX;
+                startY = e.clientY - pointY;
+                container.classList.add('panning');
+            }
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (!panning) return;
+            e.preventDefault();
+            pointX = e.clientX - startX;
+            pointY = e.clientY - startY;
+            setTransform();
+        });
+
+        window.addEventListener('mouseup', () => {
+            panning = false;
+            container.classList.remove('panning');
+        });
+
+        // Touch events for mobile
+        container.addEventListener('touchstart', (e) => {
+            if (e.target === container || e.target.tagName === 'svg') {
+                if (e.touches.length === 1) {
+                    panning = true;
+                    startX = e.touches[0].clientX - pointX;
+                    startY = e.touches[0].clientY - pointY;
+                    container.classList.add('panning');
+                } else if (e.touches.length === 2) {
+                    // Pinch zoom
+                    panning = false;
+                    container.classList.remove('panning');
+                }
+            }
+        }, { passive: false });
+
+        window.addEventListener('touchmove', (e) => {
+            if (e.touches.length === 1 && panning) {
+                e.preventDefault();
+                pointX = e.touches[0].clientX - startX;
+                pointY = e.touches[0].clientY - startY;
+                setTransform();
+            } else if (e.touches.length === 2) {
+                // Pinch zoom
+                e.preventDefault();
+                const dist = Math.hypot(
+                    e.touches[0].pageX - e.touches[1].pageX,
+                    e.touches[0].pageY - e.touches[1].pageY
+                );
+                
+                if (!this.lastDist) {
+                    this.lastDist = dist;
+                }
+                
+                const delta = dist - this.lastDist;
+                if (Math.abs(delta) > 5) {
+                    scale = Math.max(0.3, Math.min(3, scale + delta * 0.005));
+                    setTransform();
+                    this.lastDist = dist;
+                }
+            }
+        }, { passive: false });
+
+        window.addEventListener('touchend', () => {
+            panning = false;
+            container.classList.remove('panning');
+            this.lastDist = null;
+        });
+
+        // Mouse wheel zoom
+        wrapper.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            const delta = e.deltaY > 0 ? 0.9 : 1.1;
+            scale = Math.max(0.3, Math.min(3, scale * delta));
+            setTransform();
+        }, { passive: false });
+    }
 
     function isSkillCompleted(skill) {
         return skill.variations.every(v => completedVariations.has(v.id));
@@ -543,36 +833,42 @@
     }
 
     function init() {
+        initTheme();
+        initPanZoom();
         renderGraph();
         updateOverallProgress();
         
         let resizeTimer;
         window.addEventListener('resize', () => {
             clearTimeout(resizeTimer);
-            resizeTimer = setTimeout(renderGraph, 250);
+            resizeTimer = setTimeout(() => {
+                resetZoom();
+                renderGraph();
+            }, 250);
         });
     }
 
     function renderGraph() {
         const container = document.getElementById('tree-container');
         const svg = document.getElementById('lines-svg');
+        const wrapper = document.getElementById('tree-wrapper');
         
         const isMobile = window.innerWidth < 768;
         const g = new dagre.graphlib.Graph();
         g.setGraph({ 
-            rankdir: 'TB',
-            nodesep: isMobile ? 40 : 80,
-            ranksep: isMobile ? 100 : 120,
-            marginx: 20,
-            marginy: 20
+            rankdir: 'LR',
+            nodesep: isMobile ? 60 : 100,
+            ranksep: isMobile ? 80 : 120,
+            marginx: 40,
+            marginy: 40
         });
         g.setDefaultEdgeLabel(() => ({}));
 
         skillsData.forEach(skill => {
             g.setNode(skill.id, { 
                 label: skill.name, 
-                width: isMobile ? 140 : 200, 
-                height: isMobile ? 90 : 110,
+                width: isMobile ? 140 : 180, 
+                height: isMobile ? 90 : 100,
                 data: skill
             });
         });
@@ -584,15 +880,19 @@
         dagre.layout(g);
 
         const graphSize = g.graph();
-        container.style.width = `${Math.max(graphSize.width, container.clientWidth)}px`;
-        container.style.height = `${graphSize.height}px`;
+        graphWidth = graphSize.width;
+        graphHeight = graphSize.height;
+        
+        // Set SVG size
         svg.setAttribute('width', graphSize.width);
         svg.setAttribute('height', graphSize.height);
         svg.innerHTML = '';
 
+        // Clear old nodes
         const oldNodes = container.querySelectorAll('.skill-node');
         oldNodes.forEach(n => n.remove());
 
+        // Create nodes
         g.nodes().forEach(nodeId => {
             const node = g.node(nodeId);
             const skill = node.data;
@@ -602,6 +902,7 @@
             el.className = `skill-node ${isCompleted ? 'completed' : ''}`;
             el.id = `node-${nodeId}`;
             el.setAttribute('data-level', skill.level);
+            el.setAttribute('data-track', skill.track);
             
             el.style.left = `${node.x - node.width / 2}px`;
             el.style.top = `${node.y - node.height / 2}px`;
@@ -618,6 +919,7 @@
             container.appendChild(el);
         });
 
+        // Create edges
         g.edges().forEach(edgeId => {
             const edge = g.edge(edgeId);
             const conn = edge.data;
@@ -635,6 +937,15 @@
             path.setAttribute('class', `connection-line ${isCompleted ? 'completed-path' : ''}`);
             svg.appendChild(path);
         });
+
+        // Center the graph initially on mobile
+        if (isMobile && scale === 1) {
+            const wrapperWidth = wrapper.clientWidth;
+            const wrapperHeight = wrapper.clientHeight;
+            pointX = (wrapperWidth - graphWidth) / 2;
+            pointY = (wrapperHeight - graphHeight) / 2;
+            setTransform();
+        }
     }
 
     function openModal(skillId) {
