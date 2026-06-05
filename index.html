@@ -2,6 +2,742 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Volleyball Skill Progression DAG</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dagre/0.8.5/dagre.min.js"></script>
+    <style>
+        :root {
+            --level1-color: #3b82f6;
+            --level2-color: #8b5cf6;
+            --combined-color: #f59e0b;
+            --final-color: #ef4444;
+            --bg-color: #0f172a;
+            --card-bg: #1e293b;
+            --text-color: #f8fafc;
+            --line-color: #475569;
+            --completed-color: #22c55e;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+        }
+
+        header {
+            text-align: center;
+            padding: 15px 10px;
+            background: var(--card-bg);
+            border-bottom: 1px solid #334155;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+
+        h1 { margin-bottom: 8px; font-size: 1.4rem; }
+        
+        .progress-bar-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 10px;
+            flex-wrap: wrap;
+        }
+
+        .progress-text { font-size: 0.9rem; font-weight: bold; }
+        
+        .progress-track {
+            width: 200px;
+            height: 10px;
+            background: #334155;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: var(--completed-color);
+            width: 0%;
+            transition: width 0.5s ease;
+        }
+
+        .btn-reset {
+            background: #ef4444;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 0.85rem;
+            transition: background 0.2s;
+        }
+        .btn-reset:active { background: #dc2626; transform: scale(0.95); }
+
+        .tree-container {
+            position: relative;
+            margin: 20px auto;
+            background: rgba(30, 41, 59, 0.3);
+            border-radius: 12px;
+            border: 1px solid #334155;
+            overflow: auto;
+            max-height: calc(100vh - 180px);
+            padding: 15px;
+            
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .tree-container::-webkit-scrollbar {
+            display: none;
+        }
+
+        .lines-svg {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .connection-line {
+            fill: none;
+            stroke: var(--line-color);
+            stroke-width: 2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            transition: stroke 0.3s, stroke-width 0.3s;
+        }
+
+        .connection-line.completed-path {
+            stroke: var(--completed-color);
+            stroke-width: 3;
+        }
+
+        .skill-node {
+            position: absolute;
+            background: var(--card-bg);
+            border: 2px solid var(--line-color);
+            border-radius: 10px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            z-index: 3;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 8px;
+            min-width: 140px;
+        }
+
+        .skill-node:active {
+            transform: scale(0.98);
+        }
+
+        .skill-node.completed {
+            border-color: var(--completed-color);
+            background: rgba(34, 197, 94, 0.1);
+        }
+
+        .skill-node.completed::after {
+            content: '✓';
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            background: var(--completed-color);
+            color: white;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 12px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .skill-node[data-level="1"] { border-top: 3px solid var(--level1-color); }
+        .skill-node[data-level="2"] { border-top: 3px solid var(--level2-color); }
+        .skill-node[data-level="combined"] { border-top: 3px solid var(--combined-color); }
+        .skill-node[data-level="final"] { border-top: 3px solid var(--final-color); }
+        .skill-node[data-level="isolated"] { border-top: 3px solid #14b8a6; }
+
+        .skill-name { font-weight: bold; font-size: 0.85rem; margin-bottom: 3px; line-height: 1.2; word-wrap: break-word; max-width: 100%; }
+        .skill-subheading { font-size: 0.65rem; color: #94a3b8; font-weight: 600; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .skill-progress { font-size: 0.7rem; color: #cbd5e1; font-weight: bold; background: #334155; padding: 2px 6px; border-radius: 8px; }
+
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            z-index: 1000;
+            justify-content: center;
+            align-items: flex-end;
+            padding: 0;
+            backdrop-filter: blur(4px);
+        }
+
+        .modal-overlay.active { display: flex; }
+
+        .modal-content {
+            background: var(--card-bg);
+            border-radius: 20px 20px 0 0;
+            width: 100%;
+            max-height: 85vh;
+            overflow-y: auto;
+            position: relative;
+            border: 1px solid #334155;
+            box-shadow: 0 -4px 20px rgba(0,0,0,0.5);
+            animation: slideUp 0.3s ease;
+            
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+        }
+        
+        .modal-content::-webkit-scrollbar {
+            display: none;
+        }
+
+        @keyframes slideUp {
+            from { transform: translateY(100%); }
+            to { transform: translateY(0); }
+        }
+
+        .modal-header {
+            padding: 20px 15px;
+            border-bottom: 1px solid #334155;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            position: sticky;
+            top: 0;
+            background: var(--card-bg);
+            z-index: 10;
+            border-radius: 20px 20px 0 0;
+        }
+
+        .modal-title { font-size: 1.2rem; font-weight: bold; color: white; margin-bottom: 4px; }
+        .modal-subheading { font-size: 0.8rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; }
+        
+        .modal-close {
+            background: rgba(255,255,255,0.1);
+            border: none;
+            color: white;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            font-size: 1.5rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            line-height: 1;
+            flex-shrink: 0;
+            margin-left: 10px;
+        }
+        .modal-close:active { background: rgba(255,255,255,0.2); }
+
+        .modal-body { padding: 15px; }
+        
+        .modal-description {
+            margin-bottom: 20px;
+            line-height: 1.6;
+            color: #cbd5e1;
+            font-size: 0.95rem;
+        }
+
+        .video-container {
+            position: relative;
+            padding-bottom: 56.25%;
+            height: 0;
+            background: #000;
+            border-radius: 8px;
+            overflow: hidden;
+            margin-bottom: 20px;
+            border: 1px solid #334155;
+        }
+
+        .video-container iframe {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            border: none;
+        }
+
+        .variations-section {
+            background: rgba(15, 23, 42, 0.5);
+            border-radius: 10px;
+            padding: 15px;
+            border: 1px solid #334155;
+        }
+
+        .variations-title {
+            font-size: 1rem;
+            font-weight: bold;
+            margin-bottom: 12px;
+            color: white;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
+        .variation-item {
+            display: flex;
+            align-items: center;
+            padding: 12px;
+            margin-bottom: 8px;
+            background: var(--card-bg);
+            border-radius: 8px;
+            border: 1px solid #475569;
+            cursor: pointer;
+            transition: all 0.2s;
+            min-height: 50px;
+        }
+
+        .variation-item:active {
+            transform: scale(0.98);
+            background: #263345;
+        }
+
+        .variation-item.completed {
+            border-color: var(--completed-color);
+            background: rgba(34, 197, 94, 0.1);
+            text-decoration: line-through;
+            opacity: 0.7;
+        }
+
+        .variation-checkbox {
+            width: 22px;
+            height: 22px;
+            margin-right: 12px;
+            accent-color: var(--completed-color);
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+
+        .variation-details {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            min-width: 0;
+        }
+
+        .variation-name { font-weight: 500; color: #f8fafc; font-size: 0.9rem; word-wrap: break-word; }
+        .variation-reps { font-size: 0.8rem; color: #fbbf24; font-weight: bold; background: #334155; padding: 2px 8px; border-radius: 4px; align-self: flex-start; }
+
+        .legend {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 10px;
+            font-size: 0.75rem;
+            flex-wrap: wrap;
+        }
+        .legend-item { display: flex; align-items: center; gap: 4px; }
+        .legend-dot { width: 10px; height: 10px; border-radius: 50%; }
+
+        /* Desktop styles */
+        @media (min-width: 768px) {
+            .modal-overlay {
+                align-items: center;
+                padding: 20px;
+            }
+            
+            .modal-content {
+                max-width: 600px;
+                border-radius: 16px;
+                max-height: 90vh;
+                animation: fadeIn 0.3s ease;
+            }
+            
+            @keyframes fadeIn {
+                from { opacity: 0; transform: scale(0.95); }
+                to { opacity: 1; transform: scale(1); }
+            }
+            
+            .skill-node {
+                min-width: 160px;
+                padding: 12px;
+            }
+            
+            .skill-name { font-size: 1rem; }
+            .skill-subheading { font-size: 0.75rem; }
+            .skill-progress { font-size: 0.8rem; }
+        }
+
+        @media (max-width: 480px) {
+            h1 { font-size: 1.2rem; }
+            .progress-track { width: 150px; }
+            .progress-text { font-size: 0.85rem; }
+            .tree-container { max-height: calc(100vh - 160px); padding: 10px; }
+            .skill-node { min-width: 120px; padding: 6px; }
+            .skill-name { font-size: 0.75rem; }
+            .skill-subheading { font-size: 0.6rem; }
+            .skill-progress { font-size: 0.65rem; }
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>🏐 Volleyball Skill Progression</h1>
+    <div class="progress-bar-container">
+        <span class="progress-text">Progress: <span id="completed-count">0</span> / 8</span>
+        <div class="progress-track">
+            <div class="progress-fill" id="progress-fill"></div>
+        </div>
+        <button class="btn-reset" onclick="resetProgress()">Reset</button>
+    </div>
+    <div class="legend">
+        <div class="legend-item"><div class="legend-dot" style="background: var(--level1-color)"></div> Level 1</div>
+        <div class="legend-item"><div class="legend-dot" style="background: #14b8a6"></div> Isolated</div>
+        <div class="legend-item"><div class="legend-dot" style="background: var(--level2-color)"></div> Level 2</div>
+        <div class="legend-item"><div class="legend-dot" style="background: var(--combined-color)"></div> Combined</div>
+        <div class="legend-item"><div class="legend-dot" style="background: var(--final-color)"></div> Final</div>
+    </div>
+</header>
+
+<div class="tree-container" id="tree-container">
+    <svg class="lines-svg" id="lines-svg"></svg>
+</div>
+
+<!-- Modal -->
+<div class="modal-overlay" id="skill-modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <div style="flex: 1; min-width: 0;">
+                <div class="modal-title" id="modal-title">Skill Name</div>
+                <div class="modal-subheading" id="modal-subheading">Subheading</div>
+            </div>
+            <button class="modal-close" onclick="closeModal()">×</button>
+        </div>
+        <div class="modal-body">
+            <p class="modal-description" id="modal-description">Skill description goes here.</p>
+            
+            <div class="video-container">
+                <iframe id="modal-video" src="" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+            </div>
+            
+            <div class="variations-section">
+                <div class="variations-title">
+                    <span>📋 Drill Variations</span>
+                    <span id="modal-variation-progress" style="font-size: 0.85rem; color: #94a3b8; font-weight: normal;">(0/0)</span>
+                </div>
+                <div id="variations-list"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const skillsData = [
+        {
+            id: 'wp_l1', name: 'Wall Passing', subHeading: 'Level 1', level: '1',
+            description: 'Foundational passing drills against a wall to build platform consistency, leg drive, and ball control.',
+            video: '',
+            variations: [
+                { id: 'wp_l1_v1', name: 'Standing self bump', reps: '100' },
+                { id: 'wp_l1_v2', name: 'Wall self-bump', reps: '100' },
+                { id: 'wp_l1_v3', name: '1 arm bumps', reps: '100' }
+            ]
+        },
+        {
+            id: 'ws_l1', name: 'Wall Setting', subHeading: 'Level 1', level: '1',
+            description: 'Foundational setting drills against a wall to develop proper hand shape, wrist snap, and finger strength.',
+            video: '',
+            variations: [
+                { id: 'ws_l1_v1', name: 'Close wall sets', reps: '100' },
+                { id: 'ws_l1_v2', name: 'Far wall sets', reps: '80' }
+            ]
+        },
+        {
+            id: 'db_iso', name: 'Down Balling', subHeading: 'Isolated', level: 'isolated',
+            description: 'Isolated hitting mechanics focusing on arm swing path, wrist snap, and solid contact without the complexity of a full approach.',
+            video: '',
+            variations: [
+                { id: 'db_iso_v1', name: 'Hold ball and hit', reps: 'Focus on form' },
+                { id: 'db_iso_v2', name: 'Arm swing down against wall (catch & retoss)', reps: 'Focus on wrist snap' }
+            ]
+        },
+        {
+            id: 'wp_l2', name: 'Wall Passing', subHeading: 'Level 2', level: '2',
+            description: 'Advanced passing variations introducing movement, non-dominant arm usage, and reading rebounds.',
+            video: '',
+            variations: [
+                { id: 'wp_l2_v1', name: '1 arm bumps alternating', reps: '100' },
+                { id: 'wp_l2_v2', name: 'Pass to wall then pass to self', reps: '50' }
+            ]
+        },
+        {
+            id: 'ws_l2', name: 'Wall Setting', subHeading: 'Level 2', level: '2',
+            description: 'Advanced setting variations focusing on one-handed control and transitioning from a self-toss to a wall target.',
+            video: '',
+            variations: [
+                { id: 'ws_l2_v1', name: '1 arm setting against wall', reps: '100' },
+                { id: 'ws_l2_v2', name: 'Set to self then set to wall', reps: '50' }
+            ]
+        },
+        {
+            id: 'ps_comb', name: 'Pass and Set', subHeading: 'Combined Reps', level: 'combined',
+            description: 'Combining passing and setting into fluid sequences to simulate game-like transitions and improve touch versatility.',
+            video: '',
+            variations: [
+                { id: 'ps_comb_v1', name: 'Pass to wall, then set to self', reps: '50' },
+                { id: 'ps_comb_v2', name: 'Reverse set to wall (continuous)', reps: '30' }
+            ]
+        },
+        {
+            id: 'dbp_comb', name: 'Down Ball and Pass', subHeading: 'Combined Reps', level: 'combined',
+            description: 'Transitioning from an aggressive attacking motion directly into a controlled defensive passing posture.',
+            video: '',
+            variations: [
+                { id: 'dbp_comb_v1', name: 'Dig, set, spike to wall', reps: '30' },
+                { id: 'dbp_comb_v2', name: 'Float serve against wall and overhead pass', reps: '30' }
+            ]
+        },
+        {
+            id: 'wp_pepper', name: 'Wall Pepper', subHeading: 'Final Level', level: 'final',
+            description: 'The ultimate solo wall drill combining all skills into a continuous, rhythmic rally. Requires stamina, footwork, and seamless transitions.',
+            video: '',
+            variations: [
+                { id: 'wp_pepper_v1', name: 'Continuous dig-set-spike to wall', reps: '30' },
+                { id: 'wp_pepper_v2', name: 'High toss arm swing (catch & retoss)', reps: 'Focus on contact' }
+            ]
+        }
+    ];
+
+    const connections = [
+        { from: 'wp_l1', to: 'wp_l2' },
+        { from: 'ws_l1', to: 'ws_l2' },
+        { from: 'db_iso', to: 'dbp_comb' },
+        { from: 'wp_l2', to: 'ps_comb' },
+        { from: 'ws_l2', to: 'ps_comb' },
+        { from: 'ps_comb', to: 'wp_pepper' },
+        { from: 'dbp_comb', to: 'wp_pepper' }
+    ];
+
+    let completedVariations = new Set(JSON.parse(localStorage.getItem('vb_completed_variations') || '[]'));
+    let currentModalSkillId = null;
+
+    function isSkillCompleted(skill) {
+        return skill.variations.every(v => completedVariations.has(v.id));
+    }
+
+    function getSkillProgress(skill) {
+        const completed = skill.variations.filter(v => completedVariations.has(v.id)).length;
+        return `${completed}/${skill.variations.length}`;
+    }
+
+    function init() {
+        renderGraph();
+        updateOverallProgress();
+        
+        let resizeTimer;
+        window.addEventListener('resize', () => {
+            clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(renderGraph, 250);
+        });
+    }
+
+    function renderGraph() {
+        const container = document.getElementById('tree-container');
+        const svg = document.getElementById('lines-svg');
+        
+        const isMobile = window.innerWidth < 768;
+        const g = new dagre.graphlib.Graph();
+        g.setGraph({ 
+            rankdir: 'TB',
+            nodesep: isMobile ? 40 : 80,
+            ranksep: isMobile ? 100 : 120,
+            marginx: 20,
+            marginy: 20
+        });
+        g.setDefaultEdgeLabel(() => ({}));
+
+        skillsData.forEach(skill => {
+            g.setNode(skill.id, { 
+                label: skill.name, 
+                width: isMobile ? 140 : 200, 
+                height: isMobile ? 90 : 110,
+                data: skill
+            });
+        });
+
+        connections.forEach(conn => {
+            g.setEdge(conn.from, conn.to, { data: conn });
+        });
+
+        dagre.layout(g);
+
+        const graphSize = g.graph();
+        container.style.width = `${Math.max(graphSize.width, container.clientWidth)}px`;
+        container.style.height = `${graphSize.height}px`;
+        svg.setAttribute('width', graphSize.width);
+        svg.setAttribute('height', graphSize.height);
+        svg.innerHTML = '';
+
+        const oldNodes = container.querySelectorAll('.skill-node');
+        oldNodes.forEach(n => n.remove());
+
+        g.nodes().forEach(nodeId => {
+            const node = g.node(nodeId);
+            const skill = node.data;
+            const isCompleted = isSkillCompleted(skill);
+            
+            const el = document.createElement('div');
+            el.className = `skill-node ${isCompleted ? 'completed' : ''}`;
+            el.id = `node-${nodeId}`;
+            el.setAttribute('data-level', skill.level);
+            
+            el.style.left = `${node.x - node.width / 2}px`;
+            el.style.top = `${node.y - node.height / 2}px`;
+            el.style.width = `${node.width}px`;
+            el.style.height = `${node.height}px`;
+            
+            el.innerHTML = `
+                <div class="skill-name">${skill.name}</div>
+                <div class="skill-subheading">${skill.subHeading}</div>
+                <div class="skill-progress">${getSkillProgress(skill)} done</div>
+            `;
+            
+            el.onclick = () => openModal(nodeId);
+            container.appendChild(el);
+        });
+
+        g.edges().forEach(edgeId => {
+            const edge = g.edge(edgeId);
+            const conn = edge.data;
+            const fromSkill = skillsData.find(s => s.id === conn.from);
+            const toSkill = skillsData.find(s => s.id === conn.to);
+            const isCompleted = isSkillCompleted(fromSkill) && isSkillCompleted(toSkill);
+            
+            const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            let d = `M ${edge.points[0].x} ${edge.points[0].y}`;
+            for (let i = 1; i < edge.points.length; i++) {
+                d += ` L ${edge.points[i].x} ${edge.points[i].y}`;
+            }
+            
+            path.setAttribute('d', d);
+            path.setAttribute('class', `connection-line ${isCompleted ? 'completed-path' : ''}`);
+            svg.appendChild(path);
+        });
+    }
+
+    function openModal(skillId) {
+        currentModalSkillId = skillId;
+        const skill = skillsData.find(s => s.id === skillId);
+        
+        document.getElementById('modal-title').textContent = skill.name;
+        document.getElementById('modal-subheading').textContent = skill.subHeading;
+        document.getElementById('modal-description').innerHTML = skill.description;
+        document.getElementById('modal-video').src = skill.video || ""; 
+
+        const variationsList = document.getElementById('variations-list');
+        variationsList.innerHTML = '';
+        
+        let completedCount = 0;
+        skill.variations.forEach(variation => {
+            const isDone = completedVariations.has(variation.id);
+            if (isDone) completedCount++;
+
+            const item = document.createElement('div');
+            item.className = `variation-item ${isDone ? 'completed' : ''}`;
+            item.onclick = (e) => {
+                if (e.target.type !== 'checkbox') {
+                    toggleVariation(variation.id);
+                }
+            };
+
+            item.innerHTML = `
+                <input type="checkbox" class="variation-checkbox" 
+                       ${isDone ? 'checked' : ''} 
+                       onchange="toggleVariation('${variation.id}')">
+                <div class="variation-details">
+                    <span class="variation-name">${variation.name}</span>
+                    <span class="variation-reps">${variation.reps}</span>
+                </div>
+            `;
+            variationsList.appendChild(item);
+        });
+
+        document.getElementById('modal-variation-progress').textContent = `(${completedCount}/${skill.variations.length})`;
+        document.getElementById('skill-modal').classList.add('active');
+        document.body.style.overflow = 'hidden';
+    }
+
+    function toggleVariation(variationId) {
+        if (completedVariations.has(variationId)) {
+            completedVariations.delete(variationId);
+        } else {
+            completedVariations.add(variationId);
+        }
+
+        localStorage.setItem('vb_completed_variations', JSON.stringify([...completedVariations]));
+        
+        if (currentModalSkillId) {
+            openModal(currentModalSkillId);
+        }
+        renderGraph();
+        updateOverallProgress();
+    }
+
+    function closeModal() {
+        document.getElementById('skill-modal').classList.remove('active');
+        document.getElementById('modal-video').src = ""; 
+        document.body.style.overflow = '';
+        currentModalSkillId = null;
+    }
+
+    function updateOverallProgress() {
+        const totalSkills = skillsData.length;
+        const completedSkills = skillsData.filter(isSkillCompleted).length;
+        const percentage = (completedSkills / totalSkills) * 100;
+
+        document.getElementById('completed-count').textContent = completedSkills;
+        document.getElementById('progress-fill').style.width = `${percentage}%`;
+    }
+
+    function resetProgress() {
+        if (confirm('Are you sure you want to reset all progress?')) {
+            completedVariations.clear();
+            localStorage.removeItem('vb_completed_variations');
+            renderGraph();
+            updateOverallProgress();
+        }
+    }
+
+    document.getElementById('skill-modal').addEventListener('click', (e) => {
+        if (e.target.id === 'skill-modal') closeModal();
+    });
+
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && currentModalSkillId) {
+            closeModal();
+        }
+    });
+
+    init();
+</script>
+
+</body>
+</html><!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Volleyball Skill Progression DAG</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/dagre/0.8.5/dagre.min.js"></script>
