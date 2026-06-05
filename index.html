@@ -287,6 +287,7 @@
             opacity: 0.8;
         }
 
+        /* SNAPPY MODAL - No animations */
         .modal-overlay {
             display: none;
             position: fixed;
@@ -311,7 +312,7 @@
             border: 1px solid var(--border-color);
             box-shadow: var(--shadow-hover);
             color: var(--text-color);
-            animation: slideUp 0.3s ease;
+            /* Animation removed for snappy feel */
             
             scrollbar-width: none;
             -ms-overflow-style: none;
@@ -319,11 +320,6 @@
         
         .modal-content::-webkit-scrollbar {
             display: none;
-        }
-
-        @keyframes slideUp {
-            from { transform: translateY(100%); }
-            to { transform: translateY(0); }
         }
 
         .modal-header {
@@ -509,12 +505,6 @@
                 max-width: 600px;
                 border-radius: 16px;
                 max-height: 90vh;
-                animation: fadeIn 0.3s ease;
-            }
-            
-            @keyframes fadeIn {
-                from { opacity: 0; transform: scale(0.95); }
-                to { opacity: 1; transform: scale(1); }
             }
         }
 
@@ -591,15 +581,6 @@
 <script>
     const skillsData = [
         {
-            id: 'ws_l1', name: 'Wall Setting', subHeading: 'Level 1', level: '1', track: 'set',
-            description: 'Foundational setting drills against a wall to develop proper hand shape, wrist snap, and finger strength.',
-            video: '',
-            variations: [
-                { id: 'ws_l1_v1', name: 'Close wall sets', reps: '100' },
-                { id: 'ws_l1_v2', name: 'Far wall sets', reps: '80' }
-            ]
-        },
-        {
             id: 'wp_l1', name: 'Wall Passing', subHeading: 'Level 1', level: '1', track: 'dig',
             description: 'Foundational passing drills against a wall to build platform consistency, leg drive, and ball control.',
             video: '',
@@ -610,21 +591,21 @@
             ]
         },
         {
-            id: 'db_iso', name: 'Down Balling', subHeading: 'Isolated Rep', level: 'isolated', track: 'hit',
+            id: 'ws_l1', name: 'Wall Setting', subHeading: 'Level 1', level: '1', track: 'set',
+            description: 'Foundational setting drills against a wall to develop proper hand shape, wrist snap, and finger strength.',
+            video: '',
+            variations: [
+                { id: 'ws_l1_v1', name: 'Close wall sets', reps: '100' },
+                { id: 'ws_l1_v2', name: 'Far wall sets', reps: '80' }
+            ]
+        },
+        {
+            id: 'db_iso', name: 'Down Balling', subHeading: 'Isolated', level: 'isolated', track: 'hit',
             description: 'Isolated hitting mechanics focusing on arm swing path, wrist snap, and solid contact without the complexity of a full approach.',
             video: '',
             variations: [
                 { id: 'db_iso_v1', name: 'Hold ball and hit', reps: 'Focus on form' },
                 { id: 'db_iso_v2', name: 'Arm swing down against wall (catch & retoss)', reps: 'Focus on wrist snap' }
-            ]
-        },
-        {
-            id: 'ws_l2', name: 'Wall Setting', subHeading: 'Level 2', level: '2', track: 'set',
-            description: 'Advanced setting variations focusing on one-handed control and transitioning from a self-toss to a wall target.',
-            video: '',
-            variations: [
-                { id: 'ws_l2_v1', name: '1 arm setting against wall', reps: '100' },
-                { id: 'ws_l2_v2', name: 'Set to self then set to wall', reps: '50' }
             ]
         },
         {
@@ -637,7 +618,16 @@
             ]
         },
         {
-            id: 'ps_comb', name: 'Pass & Set', subHeading: 'Combined Rep', level: 'combined', track: 'combined',
+            id: 'ws_l2', name: 'Wall Setting', subHeading: 'Level 2', level: '2', track: 'set',
+            description: 'Advanced setting variations focusing on one-handed control and transitioning from a self-toss to a wall target.',
+            video: '',
+            variations: [
+                { id: 'ws_l2_v1', name: '1 arm setting against wall', reps: '100' },
+                { id: 'ws_l2_v2', name: 'Set to self then set to wall', reps: '50' }
+            ]
+        },
+        {
+            id: 'ps_comb', name: 'Pass and Set', subHeading: 'Combined Reps', level: 'combined', track: 'combined',
             description: 'Combining passing and setting into fluid sequences to simulate game-like transitions and improve touch versatility.',
             video: '',
             variations: [
@@ -646,7 +636,7 @@
             ]
         },
         {
-            id: 'dbp_comb', name: 'Down Ball & Pass', subHeading: 'Combined Rep', level: 'combined', track: 'combined',
+            id: 'dbp_comb', name: 'Down Ball and Pass', subHeading: 'Combined Reps', level: 'combined', track: 'combined',
             description: 'Transitioning from an aggressive attacking motion directly into a controlled defensive passing posture.',
             video: '',
             variations: [
@@ -655,7 +645,7 @@
             ]
         },
         {
-            id: 'wp_pepper', name: 'Wall Pepper', subHeading: 'Integrated Drill ★', level: 'final', track: 'final',
+            id: 'wp_pepper', name: 'Wall Pepper', subHeading: 'Final Level', level: 'final', track: 'final',
             description: 'The ultimate solo wall drill combining all skills into a continuous, rhythmic rally. Requires stamina, footwork, and seamless transitions.',
             video: '',
             variations: [
@@ -665,13 +655,13 @@
         }
     ];
 
+    // Connections strictly enforce the Top-to-Bottom hierarchy
     const connections = [
-        { from: 'ws_l1', to: 'ws_l2' },
         { from: 'wp_l1', to: 'wp_l2' },
+        { from: 'ws_l1', to: 'ws_l2' },
         { from: 'db_iso', to: 'dbp_comb' },
-        { from: 'ws_l2', to: 'ps_comb' },
         { from: 'wp_l2', to: 'ps_comb' },
-        { from: 'wp_l2', to: 'dbp_comb' },
+        { from: 'ws_l2', to: 'ps_comb' },
         { from: 'ps_comb', to: 'wp_pepper' },
         { from: 'dbp_comb', to: 'wp_pepper' }
     ];
@@ -727,7 +717,6 @@
 
     function resetZoom() {
         scale = 1;
-        // Recenter
         const wrapper = document.getElementById('tree-wrapper');
         const wrapperWidth = wrapper.clientWidth;
         const wrapperHeight = wrapper.clientHeight;
@@ -851,10 +840,12 @@
         
         const isMobile = window.innerWidth < 768;
         const g = new dagre.graphlib.Graph();
+        
+        // CHANGED: Top-to-Bottom layout
         g.setGraph({ 
-            rankdir: 'LR',
-            nodesep: isMobile ? 60 : 100,
-            ranksep: isMobile ? 80 : 120,
+            rankdir: 'TB', 
+            nodesep: isMobile ? 30 : 50,  // Horizontal space between nodes
+            ranksep: isMobile ? 60 : 90,  // Vertical space between levels
             marginx: 40,
             marginy: 40
         });
@@ -879,20 +870,16 @@
         graphWidth = graphSize.width;
         graphHeight = graphSize.height;
         
-        // FIX: Set container size to match graph so absolute positioning works and isn't clipped
         container.style.width = `${graphWidth}px`;
         container.style.height = `${graphHeight}px`;
 
-        // Set SVG size
         svg.setAttribute('width', graphWidth);
         svg.setAttribute('height', graphHeight);
         svg.innerHTML = '';
 
-        // Clear old nodes
         const oldNodes = container.querySelectorAll('.skill-node');
         oldNodes.forEach(n => n.remove());
 
-        // Create nodes
         g.nodes().forEach(nodeId => {
             const node = g.node(nodeId);
             const skill = node.data;
@@ -919,7 +906,6 @@
             container.appendChild(el);
         });
 
-        // Create edges
         g.edges().forEach(edgeId => {
             const edge = g.edge(edgeId);
             const conn = edge.data;
